@@ -21,10 +21,14 @@ func main() {
 	}
 
 	// Регистрируем обработчики
+	// Служебные
 	http.HandleFunc("/", handlers.HomeHandler)
 	http.HandleFunc("/health", handlers.HealthHandler)
+	// Get
 	http.HandleFunc("/user", handlers.GetUserHandler)
 	http.HandleFunc("/users", handlers.GetAllUsersHandler)
+	// Post
+	http.HandleFunc("/user/create", handlers.CreateUserHandler) // POST
 
 	fmt.Println("Server running on :8080")
 	http.ListenAndServe(":8080", nil)

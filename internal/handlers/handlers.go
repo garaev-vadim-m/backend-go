@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"hello-go-backend/internal/database"
+	"hello-go-backend/internal/models"
 )
 
 func HomeHandler(w http.ResponseWriter, r *http.Request) {
@@ -65,4 +66,39 @@ func GetAllUsersHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(users)
+}
+
+func CreateUserHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		fmt.Fprintf(w, "Only post")
+		return
+	}
+
+	// Парсим JSON из body
+	var req models.CreateUserRequest
+	err := json.NewDecoder(r.Body).Decode(&req)
+
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "invalid request: %v", err)
+		return
+	}
+
+	// Создаем пользователя
+	user, err := database.CreateUser(&models.User{
+		Name:     req.Name,
+		Female:   req.Female,
+		StatusID: req.StatusID,
+	})
+
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "error creating user: %v", err)
+		return
+	}
+
+	// Возвращаем JSON
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(user)
 }

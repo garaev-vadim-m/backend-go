@@ -67,3 +67,25 @@ func GetAllUsers() ([]*models.User, error) {
 
 	return users, nil
 }
+
+func CreateUser(user *models.User) (*models.User, error) {
+	query := `
+	INSERT INTO users (name, female, status_id)
+	VALUES ($1, $2, $3)
+	RETURNING id, name, female, status_id`
+
+	createUser := &models.User{}
+
+	err := DB.QueryRow(query, user.Name, user.Female, user.StatusID).Scan(
+		&user.ID,
+		&user.Name,
+		&user.Female,
+		&user.StatusID,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return createUser, nil
+}
