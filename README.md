@@ -24,6 +24,11 @@ docker compose up --build
 export DB_HOST=localhost DB_PORT=5432 DB_USER=postgres DB_PASSWORD=postgres DB_NAME=myapp
 ```
 
+Подключение к базе данных
+```bash
+docker-compose exec postgres psql -U postgres -d myapp
+```
+
 3. Запустить:
 
 ```bash
