@@ -23,6 +23,8 @@ func main() {
 	// Регистрируем обработчики
 	http.HandleFunc("/", handlers.HomeHandler)
 	http.HandleFunc("/health", handlers.HealthHandler)
+	http.HandleFunc("/user", handlers.GetUserHandler)
+	http.HandleFunc("/users", handlers.GetAllUsersHandler)
 
 	fmt.Println("Server running on :8080")
 	http.ListenAndServe(":8080", nil)
