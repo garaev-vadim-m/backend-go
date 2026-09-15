@@ -1,0 +1,29 @@
+package main
+
+import (
+	"fmt"
+	"net/http"
+
+	"hello-go-backend/internal/database"
+	"hello-go-backend/internal/handlers"
+)
+
+func main() {
+	// Инициализируем БД
+	if err := database.InitDB(); err != nil {
+		panic(err)
+	}
+	defer database.CloseDB()
+
+	// Запускаем миграции
+	if err := database.RunMigrations(); err != nil {
+		panic(err)
+	}
+
+	// Регистрируем обработчики
+	http.HandleFunc("/", handlers.HomeHandler)
+	http.HandleFunc("/health", handlers.HealthHandler)
+
+	fmt.Println("Server running on :8080")
+	http.ListenAndServe(":8080", nil)
+}
