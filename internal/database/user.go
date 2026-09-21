@@ -104,3 +104,30 @@ func DeleteUser(id int) error {
 	}
 	return nil
 }
+
+func UpdateUser(id int, name string, female *string, statusID *int) (*models.User, error) {
+	query := `
+	UPDATE users
+	SET name = $1, female = $2, status_id = $3
+	WHERE id = $4
+	RETURNING id, name, female, status_id
+	`
+
+	user := &models.User{}
+
+	err := DB.QueryRow(query, name, female, statusID, id).Scan(
+		&user.ID,
+		&user.Name,
+		&user.Female,
+		&user.StatusID,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("user with id %d not found", id)
+		}
+		return nil, err
+	}
+
+	return user, nil
+}

@@ -31,6 +31,8 @@ func main() {
 	http.HandleFunc("/user/create", handlers.CreateUserHandler)
 	//Delete
 	http.HandleFunc("/user/delete", handlers.DeleteUserHandler)
+	// Put
+	http.HandleFunc("/user/update", handlers.UpdateUserHandler)
 
 	fmt.Println("Server running on :8080")
 	http.ListenAndServe(":8080", nil)

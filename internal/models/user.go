@@ -14,3 +14,9 @@ type CreateUserRequest struct {
 	Female   *string `json:"female"`
 	StatusID *int    `json:"status_id"`
 }
+
+type UpdateUserRequest struct {
+	Name     string  `json:"name"`
+	Female   *string `json:"female"`
+	StatusID *int    `json:"status_id"`
+}
