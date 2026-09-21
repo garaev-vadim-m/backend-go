@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"time"
 
 	_ "github.com/lib/pq"
 )
@@ -21,17 +22,28 @@ func InitDB() error {
 	)
 
 	var err error
-	DB, err = sql.Open("postgres", connStr)
-	if err != nil {
-		return err
+
+	var db *sql.DB
+
+	for i := range 5 {
+		db, err = sql.Open("postgres", connStr)
+
+		if err != nil {
+			return err
+		}
+
+		// Проверяем подключение
+		if err := db.Ping(); err == nil {
+			DB = db
+			fmt.Println("✓ Connected to PostgreSQL")
+			return nil
+		}
+
+		fmt.Printf("Attempt %d failed, retrying in 2 seconds...\n", i+1)
+		time.Sleep(2 * time.Second)
 	}
 
-	if err := DB.Ping(); err != nil {
-		return err
-	}
-
-	fmt.Println("✓ Connected to PostgreSQL")
-	return nil
+	return fmt.Errorf("failed to connect to PostgreSQL: %w", err)
 }
 
 func CloseDB() error {
