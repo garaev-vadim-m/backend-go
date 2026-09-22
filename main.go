@@ -38,7 +38,8 @@ func main() {
 	// END USERS
 
 	// STATUS
-	http.HandleFunc("/statuses", handlers.StatusHandler)
+	http.HandleFunc("/statuses", handlers.StatusesHandler)
+	http.HandleFunc("/status", handlers.StatusHandler)
 	// END STATUS
 	fmt.Println("Server running on :8080")
 	http.ListenAndServe(":8080", nil)

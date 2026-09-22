@@ -1,6 +1,10 @@
 package database
 
-import "hello-go-backend/internal/models"
+import (
+	"database/sql"
+	"fmt"
+	"hello-go-backend/internal/models"
+)
 
 func GetAllStatus() ([]*models.Status, error) {
 	query := `SELECT id, name FROM status`
@@ -35,4 +39,23 @@ func GetAllStatus() ([]*models.Status, error) {
 	}
 
 	return statuses, nil
+}
+
+func GetStatus(id int) (*models.Status, error) {
+	qeury := `SELECT id, name FROM status WHERE id = $1`
+
+	status := &models.Status{}
+	err := DB.QueryRow(qeury, id).Scan(
+		&status.ID,
+		&status.Name,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("status with id %d not found", id)
+		}
+		return nil, err
+	}
+
+	return status, nil
 }
