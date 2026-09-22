@@ -110,3 +110,54 @@ func DeleteStatusHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintf(w, "user deleted")
 }
+
+func UpdateStatusHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		fmt.Fprintf(w, "Only PUT")
+		return
+	}
+
+	idStr := r.URL.Query().Get("id")
+
+	if idStr == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "id parameter is required")
+		return
+	}
+
+	id, err := strconv.Atoi(idStr)
+
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "invalid id: %v", err)
+		return
+	}
+
+	var req models.UpdateStatusRequest
+
+	err = json.NewDecoder(r.Body).Decode(&req)
+
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "invalid request: %v", err)
+		return
+	}
+
+	if req.Name == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "name is required")
+		return
+	}
+
+	status, err := database.UpdateStatus(id, req.Name)
+
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "failed to update status: %v", err)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "status updated: %v", status)
+}
