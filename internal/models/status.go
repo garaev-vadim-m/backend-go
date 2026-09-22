@@ -8,3 +8,7 @@ type Status struct {
 type CreateStatus struct {
 	Name string `json:"name"`
 }
+
+type UpdateStatusRequest struct {
+	Name string `json:"name"`
+}

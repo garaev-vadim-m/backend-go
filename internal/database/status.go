@@ -80,3 +80,20 @@ func CreateStatus(status *models.Status) (*models.Status, error) {
 
 	return createStatus, nil
 }
+
+func DeleteStatus(id int) error {
+	query := `DELETE FROM status WHERE id = $1`
+
+	result, err := DB.Exec(query, id)
+
+	rowsAffected, err := result.RowsAffected()
+
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("no rows affected")
+	}
+	return nil
+}

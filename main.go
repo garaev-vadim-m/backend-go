@@ -41,6 +41,7 @@ func main() {
 	http.HandleFunc("/statuses", handlers.StatusesHandler)
 	http.HandleFunc("/status", handlers.StatusHandler)
 	http.HandleFunc("/status/create", handlers.CreateStatusHandler)
+	http.HandleFunc("/status/delete", handlers.DeleteStatusHandler)
 	// END STATUS
 	fmt.Println("Server running on :8080")
 	http.ListenAndServe(":8080", nil)

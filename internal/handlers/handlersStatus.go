@@ -81,3 +81,32 @@ func CreateStatusHandler(w http.ResponseWriter, r *http.Request) {
 
 	json.NewEncoder(w).Encode(status)
 }
+
+func DeleteStatusHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		fmt.Fprintf(w, "Only DELETE")
+		return
+	}
+
+	idStr := r.URL.Query().Get("id")
+
+	id, err := strconv.Atoi(idStr)
+
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "invalid id: %v", err)
+		return
+	}
+
+	err = database.DeleteStatus(id)
+
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "invalid id: %v", err)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "user deleted")
+}
