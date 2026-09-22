@@ -93,7 +93,7 @@ func CreateUserHandler(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusMethodNotAllowed)
 		fmt.Fprintf(w, "error creating user: %v", err)
 		return
 	}

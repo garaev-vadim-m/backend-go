@@ -59,3 +59,24 @@ func GetStatus(id int) (*models.Status, error) {
 
 	return status, nil
 }
+
+func CreateStatus(status *models.Status) (*models.Status, error) {
+	query := `
+	INSERT INTO status (name)
+	VALUES ($1)
+	RETURNING id, name
+	`
+
+	createStatus := &models.Status{}
+
+	err := DB.QueryRow(query, status.Name).Scan(
+		&status.ID,
+		&status.Name,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return createStatus, nil
+}
