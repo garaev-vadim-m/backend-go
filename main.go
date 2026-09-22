@@ -24,6 +24,8 @@ func main() {
 	// Служебные
 	http.HandleFunc("/", handlers.HomeHandler)
 	http.HandleFunc("/health", handlers.HealthHandler)
+
+	//USERS
 	// Get
 	http.HandleFunc("/user", handlers.GetUserHandler)
 	http.HandleFunc("/users", handlers.GetAllUsersHandler)
@@ -33,7 +35,11 @@ func main() {
 	http.HandleFunc("/user/delete", handlers.DeleteUserHandler)
 	// Put
 	http.HandleFunc("/user/update", handlers.UpdateUserHandler)
+	// END USERS
 
+	// STATUS
+	http.HandleFunc("/statuses", handlers.StatusHandler)
+	// END STATUS
 	fmt.Println("Server running on :8080")
 	http.ListenAndServe(":8080", nil)
 }
