@@ -61,24 +61,25 @@ func GetStatus(db *sql.DB, id int) (*Status, error) {
 	return status, nil
 }
 
-func CreateStatus(db *sql.DB, status *Status) (*Status, error) {
+func CreateStatus(db *sql.DB, name string, code string) (*Status, error) {
 	query := `
 	INSERT INTO status (name, code)
 	VALUES ($1, $2)
 	RETURNING id, name, code
 	`
 
-	err := db.QueryRow(query, status.Name, status.Code).Scan(
-		&status.ID,
-		&status.Name,
-		&status.Code,
+	st := &Status{}
+	err := db.QueryRow(query, name, code).Scan(
+		&st.ID,
+		&st.Name,
+		&st.Code,
 	)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return status, nil
+	return st, nil
 }
 
 func DeleteStatus(db *sql.DB, id int) error {

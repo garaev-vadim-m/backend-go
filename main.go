@@ -6,7 +6,7 @@ import (
 
 	"hello-go-backend/internal/database"
 	"hello-go-backend/internal/handlers"
-	"hello-go-backend/internal/status"
+	"hello-go-backend/internal/status/controller"
 )
 
 func main() {
@@ -37,13 +37,13 @@ func main() {
 	// Put
 	http.HandleFunc("/user/update", handlers.UpdateUserHandler)
 	// END USERS
-	statusHandler := status.NewHandler(database.DB)
+	statusHandler := controller.NewHandler(database.DB)
 	// STATUS
-	http.HandleFunc("/statuses", statusHandler.StatusesHandler)
-	http.HandleFunc("/status", statusHandler.StatusHandler)
-	http.HandleFunc("/status/create", statusHandler.CreateStatusHandler)
-	http.HandleFunc("/status/delete", statusHandler.DeleteStatusHandler)
-	http.HandleFunc("/status/update", statusHandler.UpdateStatusHandler)
+	http.HandleFunc("/statuses", statusHandler.GetAll)
+	http.HandleFunc("/status", statusHandler.Get)
+	http.HandleFunc("/status/create", statusHandler.Create)
+	http.HandleFunc("/status/delete", statusHandler.Delete)
+	http.HandleFunc("/status/update", statusHandler.Update)
 	// END STATUS
 	fmt.Println("Server running on :8080")
 	http.ListenAndServe(":8080", nil)
