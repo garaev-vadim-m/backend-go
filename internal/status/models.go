@@ -1,4 +1,4 @@
-package models
+package status
 
 type Status struct {
 	ID   int    `json:"id"`
@@ -6,7 +6,7 @@ type Status struct {
 	Code string `json:"code"`
 }
 
-type CreateStatus struct {
+type CreateStatusRequest struct {
 	Name string `json:"name"`
 	Code string `json:"code"`
 }

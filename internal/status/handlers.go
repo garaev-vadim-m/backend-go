@@ -1,16 +1,23 @@
-package handlers
+package status
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
-	"hello-go-backend/internal/database"
-	"hello-go-backend/internal/models"
 	"net/http"
 	"strconv"
 )
 
-func StatusesHandler(w http.ResponseWriter, r *http.Request) {
-	statuses, err := database.GetAllStatus()
+type Handler struct {
+	db *sql.DB
+}
+
+func NewHandler(db *sql.DB) *Handler {
+	return &Handler{db: db}
+}
+
+func (h *Handler) StatusesHandler(w http.ResponseWriter, r *http.Request) {
+	statuses, err := GetAllStatus(h.db)
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -22,7 +29,7 @@ func StatusesHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(statuses)
 }
 
-func StatusHandler(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) StatusHandler(w http.ResponseWriter, r *http.Request) {
 	idStr := r.URL.Query().Get("id")
 
 	if idStr == "" {
@@ -39,7 +46,7 @@ func StatusHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	status, err := database.GetStatus(id)
+	status, err := GetStatus(h.db, id)
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -51,13 +58,13 @@ func StatusHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(status)
 }
 
-func CreateStatusHandler(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) CreateStatusHandler(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "Only post")
 	}
-	var req models.CreateStatus
+	var req CreateStatusRequest
 
 	err := json.NewDecoder(r.Body).Decode(&req)
 
@@ -67,7 +74,7 @@ func CreateStatusHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	status, err := database.CreateStatus(&models.Status{
+	status, err := CreateStatus(h.db, &Status{
 		Name: req.Name,
 		Code: req.Code,
 	})
@@ -83,7 +90,7 @@ func CreateStatusHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(status)
 }
 
-func DeleteStatusHandler(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) DeleteStatusHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		fmt.Fprintf(w, "Only DELETE")
@@ -100,7 +107,7 @@ func DeleteStatusHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = database.DeleteStatus(id)
+	err = DeleteStatus(h.db, id)
 
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -112,7 +119,7 @@ func DeleteStatusHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "user deleted")
 }
 
-func UpdateStatusHandler(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) UpdateStatusHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPut {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		fmt.Fprintf(w, "Only PUT")
@@ -135,7 +142,7 @@ func UpdateStatusHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req models.UpdateStatusRequest
+	var req UpdateStatusRequest
 
 	err = json.NewDecoder(r.Body).Decode(&req)
 
@@ -151,7 +158,7 @@ func UpdateStatusHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	status, err := database.UpdateStatus(id, req.Name, req.Code)
+	status, err := UpdateStatus(h.db, id, req.Name, req.Code)
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)

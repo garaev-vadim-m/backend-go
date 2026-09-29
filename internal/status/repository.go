@@ -1,15 +1,14 @@
-package database
+package status
 
 import (
 	"database/sql"
 	"fmt"
-	"hello-go-backend/internal/models"
 )
 
-func GetAllStatus() ([]*models.Status, error) {
+func GetAllStatus(db *sql.DB) ([]*Status, error) {
 	query := `SELECT id, name, code FROM status`
 
-	rows, err := DB.Query(query)
+	rows, err := db.Query(query)
 
 	if err != nil {
 		return nil, err
@@ -17,10 +16,10 @@ func GetAllStatus() ([]*models.Status, error) {
 
 	defer rows.Close()
 
-	var statuses []*models.Status
+	var statuses []*Status
 
 	for rows.Next() {
-		status := models.Status{}
+		status := Status{}
 
 		err := rows.Scan(
 			&status.ID,
@@ -42,11 +41,11 @@ func GetAllStatus() ([]*models.Status, error) {
 	return statuses, nil
 }
 
-func GetStatus(id int) (*models.Status, error) {
+func GetStatus(db *sql.DB, id int) (*Status, error) {
 	query := `SELECT id, name, code FROM status WHERE id = $1`
 
-	status := &models.Status{}
-	err := DB.QueryRow(query, id).Scan(
+	status := &Status{}
+	err := db.QueryRow(query, id).Scan(
 		&status.ID,
 		&status.Name,
 		&status.Code,
@@ -62,14 +61,14 @@ func GetStatus(id int) (*models.Status, error) {
 	return status, nil
 }
 
-func CreateStatus(status *models.Status) (*models.Status, error) {
+func CreateStatus(db *sql.DB, status *Status) (*Status, error) {
 	query := `
 	INSERT INTO status (name, code)
 	VALUES ($1, $2)
 	RETURNING id, name, code
 	`
 
-	err := DB.QueryRow(query, status.Name, status.Code).Scan(
+	err := db.QueryRow(query, status.Name, status.Code).Scan(
 		&status.ID,
 		&status.Name,
 		&status.Code,
@@ -82,10 +81,10 @@ func CreateStatus(status *models.Status) (*models.Status, error) {
 	return status, nil
 }
 
-func DeleteStatus(id int) error {
+func DeleteStatus(db *sql.DB, id int) error {
 	query := `DELETE FROM status WHERE id = $1`
 
-	result, err := DB.Exec(query, id)
+	result, err := db.Exec(query, id)
 
 	rowsAffected, err := result.RowsAffected()
 
@@ -99,7 +98,7 @@ func DeleteStatus(id int) error {
 	return nil
 }
 
-func UpdateStatus(id int, name string, code string) (*models.Status, error) {
+func UpdateStatus(db *sql.DB, id int, name string, code string) (*Status, error) {
 	query := `
 	UPDATE status
 	SET name = $1, code = $2
@@ -107,9 +106,9 @@ func UpdateStatus(id int, name string, code string) (*models.Status, error) {
 	RETURNING id, name, code
 	`
 
-	status := &models.Status{}
+	status := &Status{}
 
-	err := DB.QueryRow(query, name, code, id).Scan(
+	err := db.QueryRow(query, name, code, id).Scan(
 		&status.ID,
 		&status.Name,
 		&status.Code,
