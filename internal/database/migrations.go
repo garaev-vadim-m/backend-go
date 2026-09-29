@@ -8,7 +8,8 @@ func RunMigrations() error {
 	createStatusTable := `
 	CREATE TABLE IF NOT EXISTS status (
 		id SERIAL PRIMARY KEY,
-		name VARCHAR(255) NOT NULL
+		name VARCHAR(255) NOT NULL,
+		code VARCHAR(255) NOT NULL
 	);
 	`
 
@@ -17,23 +18,58 @@ func RunMigrations() error {
 		id SERIAL PRIMARY KEY,
 		name VARCHAR(255) NOT NULL,
 		female VARCHAR(10),
+		status_id INTEGER REFERENCES user_status(id),
+		rule_id INTEGER REFERENCES rules(id)
+	);
+	`
+
+	createUserStatusTable := `
+	CREATE TABLE IF NOT EXISTS user_status (
+		id SERIAL PRIMARY KEY,
+		name VARCHAR(255) NOT NULL,
+		code VARCHAR(255) NOT NULL
+	);
+	`
+
+	createRulesTable := `
+	CREATE TABLE IF NOT EXISTS rules (
+		id SERIAL PRIMARY KEY,
+		name VARCHAR(255) NOT NULL,
+		code VARCHAR(255) NOT NULL
+	);
+	`
+
+	createProductsTable := `
+	CREATE TABLE IF NOT EXISTS products (
+		id SERIAL PRIMARY KEY,
+		name VARCHAR(255) NOT NULL,
+		description VARCHAR(255),
 		status_id INTEGER REFERENCES status(id)
 	);
 	`
 
-	log.Println("Creating status table...")
-	if _, err := DB.Exec(createStatusTable); err != nil {
-		log.Printf("Error creating status table: %v", err)
-		return err
+	// Порядок важен! Сначала таблицы без зависимостей
+	tables := []struct {
+		name string
+		sql  string
+	}{
+		{"status", createStatusTable},
+		{"rules", createRulesTable},
+		{"user_status", createUserStatusTable},
+		{"users", createUsersTable},
+		{"products", createProductsTable},
 	}
-	log.Println("✓ Status table created")
 
-	log.Println("Creating users table...")
-	if _, err := DB.Exec(createUsersTable); err != nil {
-		log.Printf("Error creating users table: %v", err)
-		return err
+	for _, table := range tables {
+		log.Printf("Creating %s table...", table.name)
+
+		if _, err := DB.Exec(table.sql); err != nil {
+			log.Printf("Error creating %s table: %v", table.name, err)
+			return err
+		}
+
+		log.Printf("✓ %s table created", table.name)
 	}
-	log.Println("✓ Users table created")
 
 	return nil
 }
