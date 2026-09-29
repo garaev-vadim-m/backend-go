@@ -29,6 +29,11 @@ export DB_HOST=localhost DB_PORT=5432 DB_USER=postgres DB_PASSWORD=postgres DB_N
 docker-compose exec postgres psql -U postgres -d myapp
 ```
 
+Проверка таблиц БД
+```bash
+docker-compose exec postgres psql -U postgres -d myapp -c "\dt"
+```
+
 3. Запустить:
 
 ```bash

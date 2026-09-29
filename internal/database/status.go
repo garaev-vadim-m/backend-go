@@ -7,7 +7,7 @@ import (
 )
 
 func GetAllStatus() ([]*models.Status, error) {
-	query := `SELECT id, name FROM status`
+	query := `SELECT id, name, code FROM status`
 
 	rows, err := DB.Query(query)
 
@@ -25,6 +25,7 @@ func GetAllStatus() ([]*models.Status, error) {
 		err := rows.Scan(
 			&status.ID,
 			&status.Name,
+			&status.Code,
 		)
 
 		if err != nil {
@@ -42,12 +43,13 @@ func GetAllStatus() ([]*models.Status, error) {
 }
 
 func GetStatus(id int) (*models.Status, error) {
-	qeury := `SELECT id, name FROM status WHERE id = $1`
+	query := `SELECT id, name, code FROM status WHERE id = $1`
 
 	status := &models.Status{}
-	err := DB.QueryRow(qeury, id).Scan(
+	err := DB.QueryRow(query, id).Scan(
 		&status.ID,
 		&status.Name,
+		&status.Code,
 	)
 
 	if err != nil {
@@ -62,23 +64,22 @@ func GetStatus(id int) (*models.Status, error) {
 
 func CreateStatus(status *models.Status) (*models.Status, error) {
 	query := `
-	INSERT INTO status (name)
-	VALUES ($1)
-	RETURNING id, name
+	INSERT INTO status (name, code)
+	VALUES ($1, $2)
+	RETURNING id, name, code
 	`
 
-	createStatus := &models.Status{}
-
-	err := DB.QueryRow(query, status.Name).Scan(
+	err := DB.QueryRow(query, status.Name, status.Code).Scan(
 		&status.ID,
 		&status.Name,
+		&status.Code,
 	)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return createStatus, nil
+	return status, nil
 }
 
 func DeleteStatus(id int) error {
@@ -98,19 +99,20 @@ func DeleteStatus(id int) error {
 	return nil
 }
 
-func UpdateStatus(id int, name string) (*models.Status, error) {
+func UpdateStatus(id int, name string, code string) (*models.Status, error) {
 	query := `
 	UPDATE status
-	SET name = $1
-	WHERE id = $2
-	RETURNING id, name
+	SET name = $1, code = $2
+	WHERE id = $3
+	RETURNING id, name, code
 	`
 
 	status := &models.Status{}
 
-	err := DB.QueryRow(query, name, id).Scan(
+	err := DB.QueryRow(query, name, code, id).Scan(
 		&status.ID,
 		&status.Name,
+		&status.Code,
 	)
 
 	if err != nil {

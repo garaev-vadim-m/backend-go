@@ -69,6 +69,7 @@ func CreateStatusHandler(w http.ResponseWriter, r *http.Request) {
 
 	status, err := database.CreateStatus(&models.Status{
 		Name: req.Name,
+		Code: req.Code,
 	})
 
 	if err != nil {
@@ -150,7 +151,7 @@ func UpdateStatusHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	status, err := database.UpdateStatus(id, req.Name)
+	status, err := database.UpdateStatus(id, req.Name, req.Code)
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
