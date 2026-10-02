@@ -1,6 +1,9 @@
 package rules
 
-import "database/sql"
+import (
+	"database/sql"
+	"fmt"
+)
 
 func GetAllRules(db *sql.DB) ([]*Rule, error) {
 	query := `SELECT id,name,code FROM rules`
@@ -36,4 +39,25 @@ func GetAllRules(db *sql.DB) ([]*Rule, error) {
 	}
 
 	return rules, nil
+}
+
+func GetRule(db *sql.DB, id int) (*Rule, error) {
+	query := `SELECT id, name, code FROM rules WHERE id = $1`
+
+	rule := &Rule{}
+
+	err := db.QueryRow(query, id).Scan(
+		&rule.ID,
+		&rule.Name,
+		&rule.Code,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("status with id %d not found", id)
+		}
+		return nil, err
+	}
+
+	return rule, nil
 }

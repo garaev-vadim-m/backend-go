@@ -28,27 +28,24 @@ func main() {
 	http.HandleFunc("/health", handlers.HealthHandler)
 
 	//USERS
-	// Get
 	http.HandleFunc("/user", handlers.GetUserHandler)
 	http.HandleFunc("/users", handlers.GetAllUsersHandler)
-	// Post
 	http.HandleFunc("/user/create", handlers.CreateUserHandler)
-	//Delete
 	http.HandleFunc("/user/delete", handlers.DeleteUserHandler)
-	// Put
 	http.HandleFunc("/user/update", handlers.UpdateUserHandler)
 	// END USERS
-	statusHandler := controllerStatus.NewHandler(database.DB)
 	// STATUS
+	statusHandler := controllerStatus.NewHandler(database.DB)
 	http.HandleFunc("/statuses", statusHandler.GetAll)
 	http.HandleFunc("/status", statusHandler.Get)
 	http.HandleFunc("/status/create", statusHandler.Create)
 	http.HandleFunc("/status/delete", statusHandler.Delete)
 	http.HandleFunc("/status/update", statusHandler.Update)
 	// END STATUS
-	rulesHandler := controllerRules.NewHandler(database.DB)
 	//RULES
+	rulesHandler := controllerRules.NewHandler(database.DB)
 	http.HandleFunc("/rules", rulesHandler.GetAll)
+	http.HandleFunc("/rule", rulesHandler.Get)
 	//END RULES
 	fmt.Println("Server running on :8080")
 	http.ListenAndServe(":8080", nil)
