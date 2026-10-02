@@ -83,3 +83,29 @@ func CreateRule(db *sql.DB, name string, code string) (*Rule, error) {
 
 	return st, nil
 }
+
+func UpdateRule(db *sql.DB, id int, name string, code string) (*Rule, error) {
+	query := `
+	UPDATE rules
+	SET name = $1, code = $2
+	WHERE id = $3
+	RETURNING id, name, code
+	`
+
+	rules := &Rule{}
+
+	err := db.QueryRow(query, name, code, id).Scan(
+		&rules.ID,
+		&rules.Name,
+		&rules.Code,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("status with id %d not found", id)
+		}
+		return nil, err
+	}
+
+	return rules, nil
+}
