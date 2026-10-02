@@ -109,3 +109,19 @@ func UpdateRule(db *sql.DB, id int, name string, code string) (*Rule, error) {
 
 	return rules, nil
 }
+
+func DeleteRules(db *sql.DB, id int) error {
+	query := `DELETE FROM rules WHERE id = $1`
+
+	result, err := db.Exec(query, id)
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("no rows affected")
+	}
+	return nil
+}

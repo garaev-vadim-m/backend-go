@@ -47,6 +47,7 @@ func main() {
 	http.HandleFunc("/rules", rulesHandler.GetAll)
 	http.HandleFunc("/rule", rulesHandler.Get)
 	http.HandleFunc("/rule/create", rulesHandler.Create)
+	http.HandleFunc("/rule/delete", rulesHandler.Delete)
 	http.HandleFunc("/rule/update", rulesHandler.Update)
 	//END RULES
 	fmt.Println("Server running on :8080")
