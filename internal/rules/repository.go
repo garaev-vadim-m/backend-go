@@ -61,3 +61,25 @@ func GetRule(db *sql.DB, id int) (*Rule, error) {
 
 	return rule, nil
 }
+
+func CreateRule(db *sql.DB, name string, code string) (*Rule, error) {
+	query := `
+	INSERT INTO rules (name, code)
+	VALUES ($1, $2)
+	RETURNING id, name, code
+	`
+
+	st := &Rule{}
+
+	err := db.QueryRow(query, name, code).Scan(
+		&st.ID,
+		&st.Name,
+		&st.Code,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return st, nil
+}

@@ -46,6 +46,7 @@ func main() {
 	rulesHandler := controllerRules.NewHandler(database.DB)
 	http.HandleFunc("/rules", rulesHandler.GetAll)
 	http.HandleFunc("/rule", rulesHandler.Get)
+	http.HandleFunc("/rule/create", rulesHandler.Create)
 	//END RULES
 	fmt.Println("Server running on :8080")
 	http.ListenAndServe(":8080", nil)
