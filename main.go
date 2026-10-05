@@ -54,6 +54,7 @@ func main() {
 	//USER STATUS
 	userStatusHandler := controllerUserStatus.NewHandler(database.DB)
 	http.HandleFunc("/user-statuses", userStatusHandler.GetAll)
+	http.HandleFunc("/user-status", userStatusHandler.Get)
 	//USER STATUS
 	fmt.Println("Server running on :8080")
 	http.ListenAndServe(":8080", nil)

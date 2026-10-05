@@ -1,6 +1,9 @@
 package userstatus
 
-import "database/sql"
+import (
+	"database/sql"
+	"fmt"
+)
 
 func GetAllStatus(db *sql.DB) ([]*UserStatus, error) {
 	query := `SELECT id, name, code FROM user_status`
@@ -36,4 +39,24 @@ func GetAllStatus(db *sql.DB) ([]*UserStatus, error) {
 	}
 
 	return user_statuses, nil
+}
+
+func GetStatus(db *sql.DB, id int) (*UserStatus, error) {
+	query := `SELECT id, name, code FROM user_status WHERE id = $1`
+
+	status := &UserStatus{}
+	err := db.QueryRow(query, id).Scan(
+		&status.ID,
+		&status.Name,
+		&status.Code,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("status with id %d not found", id)
+		}
+		return nil, err
+	}
+
+	return status, nil
 }
