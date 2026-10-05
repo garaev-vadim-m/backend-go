@@ -60,3 +60,24 @@ func GetStatus(db *sql.DB, id int) (*UserStatus, error) {
 
 	return status, nil
 }
+
+func CreateStatus(db *sql.DB, name string, code string) (*UserStatus, error) {
+	query := `
+	INSERT INTO user_status (name, code)
+	VALUES ($1, $2)
+	RETURNING id, name, code
+	`
+
+	st := &UserStatus{}
+	err := db.QueryRow(query, name, code).Scan(
+		&st.ID,
+		&st.Name,
+		&st.Code,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return st, nil
+}
