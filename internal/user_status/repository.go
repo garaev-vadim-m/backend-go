@@ -98,3 +98,29 @@ func DeleteStatus(db *sql.DB, id int) error {
 	}
 	return nil
 }
+
+func UpdateStatus(db *sql.DB, id int, name string, code string) (*UserStatus, error) {
+	query := `
+	UPDATE status
+	SET name = $1, code = $2
+	WHERE id = $3
+	RETURNING id, name, code
+	`
+
+	status := &UserStatus{}
+
+	err := db.QueryRow(query, name, code, id).Scan(
+		&status.ID,
+		&status.Name,
+		&status.Code,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("status with id %d not found", id)
+		}
+		return nil, err
+	}
+
+	return status, nil
+}
