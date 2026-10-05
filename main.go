@@ -56,6 +56,7 @@ func main() {
 	http.HandleFunc("/user-statuses", userStatusHandler.GetAll)
 	http.HandleFunc("/user-status", userStatusHandler.Get)
 	http.HandleFunc("/user-status/create", userStatusHandler.Create)
+	http.HandleFunc("/user-status/delete", userStatusHandler.Delete)
 	//USER STATUS
 	fmt.Println("Server running on :8080")
 	http.ListenAndServe(":8080", nil)

@@ -81,3 +81,20 @@ func CreateStatus(db *sql.DB, name string, code string) (*UserStatus, error) {
 
 	return st, nil
 }
+
+func DeleteStatus(db *sql.DB, id int) error {
+	query := `DELETE FROM user_status WHERE id = $1`
+
+	result, err := db.Exec(query, id)
+
+	rowsAffected, err := result.RowsAffected()
+
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("no rows affected")
+	}
+	return nil
+}
