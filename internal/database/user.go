@@ -33,7 +33,7 @@ func GetUser(id int) (*models.User, error) {
 
 // GetAllUsers получает всех пользователей из БД
 func GetAllUsers() ([]*models.User, error) {
-	query := `SELECT id, name, female, status_id FROM users`
+	query := `SELECT id, name, female, status_id, rule_id FROM users`
 
 	rows, err := DB.Query(query) // Query() возвращает несколько строк
 	if err != nil {
@@ -52,6 +52,7 @@ func GetAllUsers() ([]*models.User, error) {
 			&user.Name,
 			&user.Female,
 			&user.StatusID,
+			&user.RuleID,
 		)
 		if err != nil {
 			return nil, err
@@ -70,24 +71,23 @@ func GetAllUsers() ([]*models.User, error) {
 
 func CreateUser(user *models.User) (*models.User, error) {
 	query := `
-	INSERT INTO users (name, female, status_id)
-	VALUES ($1, $2, $3)
-	RETURNING id, name, female, status_id`
+	INSERT INTO users (name, female, status_id, rule_id)
+	VALUES ($1, $2, $3, $4)
+	RETURNING id, name, female, status_id, rule_id`
 
-	createUser := &models.User{}
-
-	err := DB.QueryRow(query, user.Name, user.Female, user.StatusID).Scan(
+	err := DB.QueryRow(query, user.Name, user.Female, user.StatusID, user.RuleID).Scan(
 		&user.ID,
 		&user.Name,
 		&user.Female,
 		&user.StatusID,
+		&user.RuleID,
 	)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return createUser, nil
+	return user, nil
 }
 
 func DeleteUser(id int) error {
@@ -105,21 +105,22 @@ func DeleteUser(id int) error {
 	return nil
 }
 
-func UpdateUser(id int, name string, female *string, statusID *int) (*models.User, error) {
+func UpdateUser(id int, name string, female *string, statusID int, ruleId int) (*models.User, error) {
 	query := `
 	UPDATE users
-	SET name = $1, female = $2, status_id = $3
-	WHERE id = $4
-	RETURNING id, name, female, status_id
+	SET name = $1, female = $2, status_id = $3, rule_id = $4
+	WHERE id = $5
+	RETURNING id, name, female, status_id, rule_id
 	`
 
 	user := &models.User{}
 
-	err := DB.QueryRow(query, name, female, statusID, id).Scan(
+	err := DB.QueryRow(query, name, female, statusID, ruleId, id).Scan(
 		&user.ID,
 		&user.Name,
 		&user.Female,
 		&user.StatusID,
+		&user.RuleID,
 	)
 
 	if err != nil {

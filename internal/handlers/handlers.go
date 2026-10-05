@@ -90,6 +90,7 @@ func CreateUserHandler(w http.ResponseWriter, r *http.Request) {
 		Name:     req.Name,
 		Female:   req.Female,
 		StatusID: req.StatusID,
+		RuleID:   req.RuleID,
 	})
 
 	if err != nil {
@@ -162,13 +163,13 @@ func UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Name == "" {
+	if req.Name == "" && req.RuleID == 0 && req.StatusID == 0 {
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "name is required")
+		fmt.Fprintf(w, "name, status, rule is required")
 		return
 	}
 
-	user, err := database.UpdateUser(id, req.Name, req.Female, req.StatusID)
+	user, err := database.UpdateUser(id, req.Name, req.Female, req.StatusID, req.RuleID)
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
