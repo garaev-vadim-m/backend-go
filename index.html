@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>hello-go-backend · панель</title>
+<style>
+  :root{
+    --bg:#0f1216; --panel:#161a20; --panel2:#1d222a; --border:#2b313b;
+    --text:#e7eaee; --muted:#98a2b3; --accent:#4c8bf5; --ok:#3fb950;
+    --danger:#e5534b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  header{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:14px 18px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:5}
+  header h1{margin:0;font-size:15px;font-weight:600}
+  header h1 small{color:var(--muted);font-weight:400}
+  .grow{flex:1}
+  input,button{font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:6px 8px}
+  input:focus{outline:2px solid var(--accent)}
+  button{cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  button.danger{color:var(--danger)}
+  main{padding:18px;display:grid;gap:18px}
+  section{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px}
+  section h2{margin:0 0 10px;font-size:14px;display:flex;align-items:center;gap:8px}
+  .row{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-bottom:10px}
+  .field{display:flex;flex-direction:column;gap:4px}
+  .field label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  .field input{width:150px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--border);white-space:nowrap}
+  th{color:var(--muted);font-weight:500}
+  tr:last-child td{border-bottom:none}
+  td.actions{display:flex;gap:6px}
+  .badge{font-size:12px;padding:2px 8px;border-radius:999px;border:1px solid var(--border)}
+  .badge.ok{color:var(--ok);border-color:var(--ok)}
+  .badge.err{color:var(--danger);border-color:var(--danger)}
+  .muted{color:var(--muted)}
+  #log{position:fixed;right:16px;bottom:16px;max-width:420px;display:flex;flex-direction:column;gap:6px;z-index:10}
+  #log div{background:var(--panel2);border:1px solid var(--border);border-left-width:3px;border-radius:6px;padding:8px 10px;font-size:12px;word-break:break-word}
+  #log div.ok{border-left-color:var(--ok)}
+  #log div.err{border-left-color:var(--danger)}
+</style>
+</head>
+<body>
+<header>
+  <h1>hello-go-backend <small>· панель</small></h1>
+  <div class="field">
+    <label for="base">API base URL</label>
+    <input id="base" style="width:240px" />
+  </div>
+  <button id="saveBase">Сохранить</button>
+  <button id="checkHealth" class="primary">Проверить /health</button>
+  <span id="health" class="badge">не проверено</span>
+  <span class="grow"></span>
+  <span class="muted">CORS: бэкенд отдаёт Access-Control-Allow-Origin</span>
+</header>
+<main id="app"></main>
+<div id="log"></div>
+
+<script>
+(() => {
+  "use strict";
+
+  const STORAGE_KEY = "hello-go-backend.apiBase";
+  const DEFAULT_BASE = "http://localhost:8080";
+
+  // Описание сущностей API. Пути и тела запросов повторяют роуты main.go.
+  const ENTITIES = {
+    users: {
+      label: "Users",
+      list: "/users",
+      create: "/user/create",
+      update: (id) => `/user/update?id=${encodeURIComponent(id)}`,
+      remove: (id) => `/user/delete?id=${encodeURIComponent(id)}`,
+      fields: [
+        { name: "name", label: "name", type: "text", required: true },
+        { name: "female", label: "female", type: "text" },
+        { name: "status_id", label: "status_id", type: "number" },
+        { name: "rule_id", label: "rule_id", type: "number" },
+      ],
+    },
+    statuses: {
+      label: "Statuses",
+      list: "/statuses",
+      create: "/status/create",
+      update: (id) => `/status/update?id=${encodeURIComponent(id)}`,
+      remove: (id) => `/status/delete?id=${encodeURIComponent(id)}`,
+      fields: [
+        { name: "name", label: "name", type: "text", required: true },
+        { name: "code", label: "code", type: "text" },
+      ],
+    },
+    rules: {
+      label: "Rules",
+      list: "/rules",
+      create: "/rule/create",
+      update: (id) => `/rule/update?id=${encodeURIComponent(id)}`,
+      remove: (id) => `/rule/delete?id=${encodeURIComponent(id)}`,
+      fields: [
+        { name: "name", label: "name", type: "text", required: true },
+        { name: "code", label: "code", type: "text" },
+      ],
+    },
+    userStatuses: {
+      label: "User statuses",
+      list: "/user-statuses",
+      create: "/user-status/create",
+      update: (id) => `/user-status/update?id=${encodeURIComponent(id)}`,
+      remove: (id) => `/user-status/delete?id=${encodeURIComponent(id)}`,
+      fields: [
+        { name: "name", label: "name", type: "text", required: true },
+        { name: "code", label: "code", type: "text" },
+      ],
+    },
+  };
+
+  const baseInput = document.getElementById("base");
+  baseInput.value = localStorage.getItem(STORAGE_KEY) || DEFAULT_BASE;
+
+  const apiBase = () => baseInput.value.trim().replace(/\/+$/, "");
+
+  function log(message, kind) {
+    const box = document.getElementById("log");
+    const el = document.createElement("div");
+    el.className = kind || "";
+    el.textContent = message;
+    box.appendChild(el);
+    setTimeout(() => el.remove(), 6000);
+  }
+
+  // Единая обёртка над fetch. Возвращает { ok, status, data } и корректно
+  // разбирает как JSON, так и текстовые ответы (часть хендлеров отдаёт текст).
+  async function api(method, path, body) {
+    const url = apiBase() + path;
+    const opts = { method, headers: {} };
+    if (body !== undefined) {
+      opts.headers["Content-Type"] = "application/json";
+      opts.body = JSON.stringify(body);
+    }
+    let res;
+    try {
+      res = await fetch(url, opts);
+    } catch (e) {
+      // fetch бросает TypeError при сетевой ошибке ИЛИ при CORS-блокировке.
+      throw new Error(
+        `Сетевая/CORS ошибка (${method} ${url}): ${e.message}. ` +
+          "Проверьте, что бэкенд запущен и отдаёт заголовок Access-Control-Allow-Origin."
+      );
+    }
+    const text = await res.text();
+    let data = null;
+    if (text) {
+      try { data = JSON.parse(text); } catch { data = text; }
+    }
+    return { ok: res.ok, status: res.status, data };
+  }
+
+  const cell = (v) => (v === null || v === undefined ? "" : String(v));
+
+  function buildBody(entity, values) {
+    const body = {};
+    for (const f of entity.fields) {
+      const raw = values[f.name];
+      if (f.type === "number") {
+        body[f.name] = raw === "" || raw == null ? 0 : Number(raw);
+      } else if (raw !== "" && raw != null) {
+        body[f.name] = raw;
+      }
+    }
+    return body;
+  }
+
+  const loaders = [];
+  const app = document.getElementById("app");
+
+  for (const entity of Object.values(ENTITIES)) {
+    const section = document.createElement("section");
+    section.innerHTML = `
+      <h2>${entity.label}
+        <button data-refresh>Обновить</button>
+        <span class="grow"></span>
+      </h2>
+      <form data-form class="row">
+        ${entity.fields.map((f) => `
+          <div class="field">
+            <label>${f.label}</label>
+            <input name="${f.name}" type="${f.type}" ${f.required ? "required" : ""} />
+          </div>`).join("")}
+        <button type="submit" class="primary" data-submit>Создать</button>
+        <button type="button" data-cancel hidden>Отмена</button>
+        <input type="hidden" name="__id" />
+      </form>
+      <div data-table class="muted">Загрузка…</div>
+    `;
+    app.appendChild(section);
+
+    const form = section.querySelector("[data-form]");
+    const submitBtn = section.querySelector("[data-submit]");
+    const cancelBtn = section.querySelector("[data-cancel]");
+    const idInput = form.elements.__id;
+    const tableBox = section.querySelector("[data-table]");
+
+    function resetForm() {
+      form.reset();
+      idInput.value = "";
+      submitBtn.textContent = "Создать";
+      cancelBtn.hidden = true;
+    }
+
+    function render(rows) {
+      if (!rows.length) {
+        tableBox.innerHTML = `<span class="muted">пусто</span>`;
+        return;
+      }
+      const cols = ["id", ...entity.fields.map((f) => f.name)];
+      const head = `<tr>${cols.map((c) => `<th>${c}</th>`).join("")}<th></th></tr>`;
+      const body = rows
+        .map((row) => {
+          const tds = cols.map((c) => `<td>${cell(row[c])}</td>`).join("");
+          return `<tr>${tds}<td class="actions">
+            <button data-edit="${cell(row.id)}">Изменить</button>
+            <button data-del="${cell(row.id)}" class="danger">Удалить</button>
+          </td></tr>`;
+        })
+        .join("");
+      tableBox.innerHTML = `<table><thead>${head}</thead><tbody>${body}</tbody></table>`;
+
+      tableBox.querySelectorAll("[data-edit]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const row = rows.find((r) => cell(r.id) === btn.dataset.edit);
+          if (!row) return;
+          for (const f of entity.fields) form.elements[f.name].value = cell(row[f.name]);
+          idInput.value = cell(row.id);
+          submitBtn.textContent = "Сохранить";
+          cancelBtn.hidden = false;
+          form.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        });
+      });
+
+      tableBox.querySelectorAll("[data-del]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          if (!confirm(`Удалить id=${btn.dataset.del} из ${entity.label}?`)) return;
+          try {
+            const { ok, status, data } = await api("DELETE", entity.remove(btn.dataset.del));
+            if (!ok) throw new Error(`HTTP ${status}: ${typeof data === "string" ? data : ""}`);
+            log(`${entity.label}: id=${btn.dataset.del} удалён`, "ok");
+            load();
+          } catch (e) {
+            log(`${entity.label}: ${e.message}`, "err");
+          }
+        });
+      });
+    }
+
+    async function load() {
+      try {
+        const { ok, status, data } = await api("GET", entity.list);
+        if (!ok) throw new Error(`HTTP ${status}: ${typeof data === "string" ? data : ""}`);
+        render(Array.isArray(data) ? data : []);
+      } catch (e) {
+        tableBox.innerHTML = `<span class="muted">${e.message}</span>`;
+        log(`${entity.label}: ${e.message}`, "err");
+      }
+    }
+
+    form.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const values = {};
+      for (const f of entity.fields) values[f.name] = form.elements[f.name].value;
+      const body = buildBody(entity, values);
+      const id = idInput.value;
+      try {
+        const { ok, status, data } = await api(
+          id ? "PUT" : "POST",
+          id ? entity.update(id) : entity.create,
+          body
+        );
+        if (!ok) throw new Error(`HTTP ${status}: ${typeof data === "string" ? data : JSON.stringify(data)}`);
+        log(`${entity.label}: ${id ? `id=${id} обновлён` : "создано"}`, "ok");
+        resetForm();
+        load();
+      } catch (e) {
+        log(`${entity.label}: ${e.message}`, "err");
+      }
+    });
+
+    cancelBtn.addEventListener("click", resetForm);
+    section.querySelector("[data-refresh]").addEventListener("click", load);
+    loaders.push(load);
+  }
+
+  function reloadAll() {
+    loaders.forEach((fn) => fn());
+  }
+
+  document.getElementById("saveBase").addEventListener("click", () => {
+    localStorage.setItem(STORAGE_KEY, apiBase());
+    log(`API base = ${apiBase()}`, "ok");
+    reloadAll();
+  });
+
+  document.getElementById("checkHealth").addEventListener("click", async () => {
+    const badge = document.getElementById("health");
+    badge.className = "badge";
+    badge.textContent = "проверка…";
+    try {
+      const res = await fetch(apiBase() + "/health");
+      const text = await res.text();
+      if (res.ok) {
+        badge.className = "badge ok";
+        badge.textContent = `OK (${text.trim()})`;
+      } else {
+        badge.className = "badge err";
+        badge.textContent = `HTTP ${res.status}`;
+      }
+    } catch (e) {
+      badge.className = "badge err";
+      badge.textContent = "недоступен";
+      log(`/health: ${e.message}`, "err");
+    }
+  });
+
+  reloadAll();
+})();
+</script>
+</body>
+</html>
