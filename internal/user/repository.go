@@ -1,19 +1,18 @@
-package database
+package user
 
 import (
 	"database/sql"
 	"fmt"
-	"hello-go-backend/internal/models"
 )
 
-func GetUser(id int) (*models.User, error) {
+func GetUser(db *sql.DB, id int) (*User, error) {
 	// SQL запрос
 	query := `SELECT id, name, female, status_id FROM users WHERE id = $1`
 
 	// Создаем переменную для результата
-	user := &models.User{}
+	user := &User{}
 
-	err := DB.QueryRow(query, id).Scan(
+	err := db.QueryRow(query, id).Scan(
 		&user.ID,
 		&user.Name,
 		&user.Female,
@@ -32,21 +31,21 @@ func GetUser(id int) (*models.User, error) {
 }
 
 // GetAllUsers получает всех пользователей из БД
-func GetAllUsers() ([]*models.User, error) {
+func GetAllUsers(db *sql.DB) ([]*User, error) {
 	query := `SELECT id, name, female, status_id, rule_id FROM users`
 
-	rows, err := DB.Query(query) // Query() возвращает несколько строк
+	rows, err := db.Query(query) // Query() возвращает несколько строк
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close() // не забываем закрыть
 
 	// Создаем слайс для результатов
-	var users []*models.User
+	var users []*User
 
 	// Итерируемся по всем строкам
 	for rows.Next() {
-		user := models.User{}
+		user := User{}
 		err := rows.Scan(
 			&user.ID,
 			&user.Name,
@@ -69,13 +68,13 @@ func GetAllUsers() ([]*models.User, error) {
 	return users, nil
 }
 
-func CreateUser(user *models.User) (*models.User, error) {
+func CreateUser(db *sql.DB, user *User) (*User, error) {
 	query := `
 	INSERT INTO users (name, female, status_id, rule_id)
 	VALUES ($1, $2, $3, $4)
 	RETURNING id, name, female, status_id, rule_id`
 
-	err := DB.QueryRow(query, user.Name, user.Female, user.StatusID, user.RuleID).Scan(
+	err := db.QueryRow(query, user.Name, user.Female, user.StatusID, user.RuleID).Scan(
 		&user.ID,
 		&user.Name,
 		&user.Female,
@@ -90,9 +89,9 @@ func CreateUser(user *models.User) (*models.User, error) {
 	return user, nil
 }
 
-func DeleteUser(id int) error {
+func DeleteUser(db *sql.DB, id int) error {
 	query := `DELETE FROM users WHERE id = $1`
-	result, err := DB.Exec(query, id)
+	result, err := db.Exec(query, id)
 
 	rowsAffected, err := result.RowsAffected()
 
@@ -105,7 +104,7 @@ func DeleteUser(id int) error {
 	return nil
 }
 
-func UpdateUser(id int, name string, female *string, statusID int, ruleId int) (*models.User, error) {
+func UpdateUser(db *sql.DB, id int, name string, female *string, statusID int, ruleId int) (*User, error) {
 	query := `
 	UPDATE users
 	SET name = $1, female = $2, status_id = $3, rule_id = $4
@@ -113,9 +112,9 @@ func UpdateUser(id int, name string, female *string, statusID int, ruleId int) (
 	RETURNING id, name, female, status_id, rule_id
 	`
 
-	user := &models.User{}
+	user := &User{}
 
-	err := DB.QueryRow(query, name, female, statusID, ruleId, id).Scan(
+	err := db.QueryRow(query, name, female, statusID, ruleId, id).Scan(
 		&user.ID,
 		&user.Name,
 		&user.Female,

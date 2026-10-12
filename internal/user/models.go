@@ -1,4 +1,4 @@
-package models
+package user
 
 // User структура для представления пользователя в базе данных
 type User struct {

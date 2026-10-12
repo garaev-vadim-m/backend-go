@@ -5,11 +5,25 @@ import (
 	"net/http"
 
 	"hello-go-backend/internal/database"
-	"hello-go-backend/internal/handlers"
 	controllerRules "hello-go-backend/internal/rules/controller"
 	controllerStatus "hello-go-backend/internal/status/controller"
+	controllerUser "hello-go-backend/internal/user/controller"
 	controllerUserStatus "hello-go-backend/internal/user_status/controller"
 )
+
+func HomeHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "Hello from Go Backend!")
+}
+
+func HealthHandler(w http.ResponseWriter, r *http.Request) {
+	if err := database.DB.Ping(); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "Database error: %v", err)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "OK")
+}
 
 func main() {
 	// Инициализируем БД
@@ -25,15 +39,16 @@ func main() {
 
 	// Регистрируем обработчики
 	// Служебные
-	http.HandleFunc("/", handlers.HomeHandler)
-	http.HandleFunc("/health", handlers.HealthHandler)
+	http.HandleFunc("/", HomeHandler)
+	http.HandleFunc("/health", HealthHandler)
 
 	//USERS
-	http.HandleFunc("/user", handlers.GetUserHandler)
-	http.HandleFunc("/users", handlers.GetAllUsersHandler)
-	http.HandleFunc("/user/create", handlers.CreateUserHandler)
-	http.HandleFunc("/user/delete", handlers.DeleteUserHandler)
-	http.HandleFunc("/user/update", handlers.UpdateUserHandler)
+	userHandler := controllerUser.NewHandler(database.DB)
+	http.HandleFunc("/user", userHandler.GetUserHandler)
+	http.HandleFunc("/users", userHandler.GetAllUsersHandler)
+	http.HandleFunc("/user/create", userHandler.CreateUserHandler)
+	http.HandleFunc("/user/delete", userHandler.DeleteUserHandler)
+	http.HandleFunc("/user/update", userHandler.UpdateUserHandler)
 	// END USERS
 	// STATUS
 	statusHandler := controllerStatus.NewHandler(database.DB)
