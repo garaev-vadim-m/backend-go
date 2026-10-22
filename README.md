@@ -15,6 +15,24 @@ docker compose up --build
 | `GET /`     | Hello World         |
 | `GET /health` | Healthcheck (ping DB) |
 
+## Формат пользователя
+
+`GET /users`, `GET /user?id=`, `POST /user/create` и `PUT /user/update?id=` отдают
+одинаковый JSON — статус и роль уже развёрнуты в объекты:
+
+```json
+{
+  "id": 1,
+  "name": "Vadim",
+  "female": "Garaev",
+  "status": { "id": 1, "name": "Активен", "code": "active" },
+  "rule": { "id": 1, "name": "Admin", "code": "admin" }
+}
+```
+
+`status` и `rule` равны `null`, если не назначены. Идентификаторы `status_id` и
+`rule_id` передаются только в теле запросов `POST`/`PUT` (`null` = не назначено).
+
 ## Веб-панель (`index.html`)
 
 В корне есть `index.html` — самодостаточная страница (чистый JS, без сборки) для

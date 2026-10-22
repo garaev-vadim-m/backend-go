@@ -25,12 +25,7 @@ func (h *Handler) CreateUserHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Создаем пользователя
-	user, err := user.CreateUser(h.db, &user.User{
-		Name:     req.Name,
-		Female:   req.Female,
-		StatusID: req.StatusID,
-		RuleID:   req.RuleID,
-	})
+	user, err := user.CreateUser(h.db, req.Name, req.Female, req.StatusID, req.RuleID)
 
 	if err != nil {
 		w.WriteHeader(http.StatusMethodNotAllowed)

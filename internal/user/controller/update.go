@@ -38,7 +38,7 @@ func (h *Handler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Name == "" && req.RuleID == 0 && req.StatusID == 0 {
+	if req.Name == "" && req.StatusID == nil && req.RuleID == nil {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "name, status, rule is required")
 		return
@@ -52,6 +52,7 @@ func (h *Handler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "user updated: %v", user)
+	// Отдаём JSON в том же формате, что и GET /users
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(user)
 }

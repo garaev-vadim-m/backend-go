@@ -16,8 +16,8 @@
   header h1{margin:0;font-size:15px;font-weight:600}
   header h1 small{color:var(--muted);font-weight:400}
   .grow{flex:1}
-  input,button{font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:6px 8px}
-  input:focus{outline:2px solid var(--accent)}
+  input,select,button{font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:6px 8px}
+  input:focus,select:focus{outline:2px solid var(--accent)}
   button{cursor:pointer}
   button:hover{border-color:var(--accent)}
   button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
@@ -28,7 +28,7 @@
   .row{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-bottom:10px}
   .field{display:flex;flex-direction:column;gap:4px}
   .field label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
-  .field input{width:150px}
+  .field input,.field select{width:150px}
   table{width:100%;border-collapse:collapse;font-size:13px}
   th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--border);white-space:nowrap}
   th{color:var(--muted);font-weight:500}
@@ -78,9 +78,25 @@
       fields: [
         { name: "name", label: "name", type: "text", required: true },
         { name: "female", label: "female", type: "text" },
-        { name: "status_id", label: "status_id", type: "number" },
-        { name: "rule_id", label: "rule_id", type: "number" },
+        {
+          name: "status_id", label: "status_id", type: "select",
+          options: "/user-statuses", valueKey: "id", labelKey: "name",
+          // В ответе статус приходит объектом, id лежит внутри него.
+          source: (row) => row.status?.id,
+        },
+        {
+          name: "rule_id", label: "rule_id", type: "select",
+          options: "/rules", valueKey: "id", labelKey: "name",
+          source: (row) => row.rule?.id,
+        },
       ],
+      // В ответе status_id/rule_id больше нет — показываем name/code.
+      columns: ["id", "name", "female", "status", "rule"],
+      cell: (row, col) => {
+        if (col === "status") return row.status ? `${row.status.name} (${row.status.code})` : "";
+        if (col === "rule") return row.rule ? `${row.rule.name} (${row.rule.code})` : "";
+        return row[col];
+      },
     },
     statuses: {
       label: "Statuses",
@@ -166,6 +182,10 @@
       const raw = values[f.name];
       if (f.type === "number") {
         body[f.name] = raw === "" || raw == null ? 0 : Number(raw);
+      } else if (f.type === "select") {
+        // Пустой выбор = статус/роль не назначены, ключ не шлём вообще,
+        // чтобы бэкенд записал NULL, а не 0.
+        if (raw !== "" && raw != null) body[f.name] = Number(raw);
       } else if (raw !== "" && raw != null) {
         body[f.name] = raw;
       }
@@ -187,7 +207,9 @@
         ${entity.fields.map((f) => `
           <div class="field">
             <label>${f.label}</label>
-            <input name="${f.name}" type="${f.type}" ${f.required ? "required" : ""} />
+            ${f.type === "select"
+              ? `<select name="${f.name}" ${f.required ? "required" : ""}></select>`
+              : `<input name="${f.name}" type="${f.type}" ${f.required ? "required" : ""} />`}
           </div>`).join("")}
         <button type="submit" class="primary" data-submit>Создать</button>
         <button type="button" data-cancel hidden>Отмена</button>
@@ -210,16 +232,40 @@
       cancelBtn.hidden = true;
     }
 
+    // Наполняет <select> вариантами из options-эндпоинта. Выбранное
+    // значение сохраняем, иначе перезагрузка списка сбрасывала бы правку.
+    async function fillSelects() {
+      for (const f of entity.fields) {
+        if (f.type !== "select") continue;
+        const sel = form.elements[f.name];
+        const prev = sel.value;
+        sel.innerHTML = `<option value="">—</option>`;
+        try {
+          const { ok, data } = await api("GET", f.options);
+          if (!ok || !Array.isArray(data)) continue;
+          for (const o of data) {
+            const opt = document.createElement("option");
+            opt.value = cell(o[f.valueKey]);
+            opt.textContent = cell(o[f.labelKey]);
+            sel.appendChild(opt);
+          }
+          sel.value = prev;
+        } catch (e) {
+          log(`${entity.label}: не удалось загрузить ${f.label}: ${e.message}`, "err");
+        }
+      }
+    }
+
     function render(rows) {
       if (!rows.length) {
         tableBox.innerHTML = `<span class="muted">пусто</span>`;
         return;
       }
-      const cols = ["id", ...entity.fields.map((f) => f.name)];
+      const cols = entity.columns || ["id", ...entity.fields.map((f) => f.name)];
       const head = `<tr>${cols.map((c) => `<th>${c}</th>`).join("")}<th></th></tr>`;
       const body = rows
         .map((row) => {
-          const tds = cols.map((c) => `<td>${cell(row[c])}</td>`).join("");
+          const tds = cols.map((c) => `<td>${cell(entity.cell ? entity.cell(row, c) : row[c])}</td>`).join("");
           return `<tr>${tds}<td class="actions">
             <button data-edit="${cell(row.id)}">Изменить</button>
             <button data-del="${cell(row.id)}" class="danger">Удалить</button>
@@ -232,7 +278,11 @@
         btn.addEventListener("click", () => {
           const row = rows.find((r) => cell(r.id) === btn.dataset.edit);
           if (!row) return;
-          for (const f of entity.fields) form.elements[f.name].value = cell(row[f.name]);
+          for (const f of entity.fields) {
+            // Для select id берётся из вложенного объекта (row.status.id).
+            const v = f.source ? f.source(row) : row[f.name];
+            form.elements[f.name].value = cell(v);
+          }
           idInput.value = cell(row.id);
           submitBtn.textContent = "Сохранить";
           cancelBtn.hidden = false;
@@ -256,6 +306,9 @@
     }
 
     async function load() {
+      // Варианты select'ов подтягиваем вместе со списком, чтобы новые
+      // статусы/роли сразу были видны в выпадающих списках.
+      await fillSelects();
       try {
         const { ok, status, data } = await api("GET", entity.list);
         if (!ok) throw new Error(`HTTP ${status}: ${typeof data === "string" ? data : ""}`);
