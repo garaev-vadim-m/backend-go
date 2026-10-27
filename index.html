@@ -131,6 +131,25 @@
         { name: "code", label: "code", type: "text" },
       ],
     },
+    products: {
+      label: "Products",
+      list: "/products",
+      create: "/product/create",
+      update: (id) => `/product/update?id=${encodeURIComponent(id)}`,
+      remove: (id) => `/product/delete?id=${encodeURIComponent(id)}`,
+      fields: [
+        { name: "name", label: "name", type: "text", required: true },
+        { name: "description", label: "description", type: "text" },
+        {
+          name: "status_id",
+          label: "status_id",
+          type: "select",
+          options: "/statuses",
+          valueKey: "id",
+          labelKey: "name",
+        },
+      ],
+    },
   };
 
   const baseInput = document.getElementById("base");
