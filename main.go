@@ -104,7 +104,9 @@ func main() {
 	//PRODUCT
 	productHandler := controllerProduct.NewHandler(database.DB)
 	mux.HandleFunc("/products", productHandler.GetAll)
-	mux.HandleFunc("/product", productHandler.Get)
+	mux.HandleFunc("/product/create", productHandler.Create)
+	mux.HandleFunc("/product/delete", productHandler.Delete)
+	mux.HandleFunc("/product/update", productHandler.Update)
 	//END PRODUCT
 
 	fmt.Println("Server running on :8080")
