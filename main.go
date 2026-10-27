@@ -103,8 +103,8 @@ func main() {
 	//END USER STATUS
 	//PRODUCT
 	productHandler := controllerProduct.NewHandler(database.DB)
-
 	mux.HandleFunc("/products", productHandler.GetAll)
+	mux.HandleFunc("/product", productHandler.Get)
 	//END PRODUCT
 
 	fmt.Println("Server running on :8080")
