@@ -7,7 +7,7 @@ import (
 	"net/http"
 )
 
-func (h *Handler) CreateUserHandler(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		fmt.Fprintf(w, "Only post")

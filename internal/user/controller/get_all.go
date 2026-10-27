@@ -7,7 +7,7 @@ import (
 	"net/http"
 )
 
-func (h *Handler) GetAllUsersHandler(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetAll(w http.ResponseWriter, r *http.Request) {
 	users, err := user.GetAllUsers(h.db)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)

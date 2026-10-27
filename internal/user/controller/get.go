@@ -8,7 +8,7 @@ import (
 	"strconv"
 )
 
-func (h *Handler) GetUserHandler(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 	// Получаем ID из URL параметра
 	// URL: /user/1 -> query параметр "id"
 	idStr := r.URL.Query().Get("id")

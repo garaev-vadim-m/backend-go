@@ -71,11 +71,11 @@ func main() {
 
 	//USERS
 	userHandler := controllerUser.NewHandler(database.DB)
-	mux.HandleFunc("/user", userHandler.GetUserHandler)
-	mux.HandleFunc("/users", userHandler.GetAllUsersHandler)
-	mux.HandleFunc("/user/create", userHandler.CreateUserHandler)
-	mux.HandleFunc("/user/delete", userHandler.DeleteUserHandler)
-	mux.HandleFunc("/user/update", userHandler.UpdateUserHandler)
+	mux.HandleFunc("/user", userHandler.Get)
+	mux.HandleFunc("/users", userHandler.GetAll)
+	mux.HandleFunc("/user/create", userHandler.Create)
+	mux.HandleFunc("/user/delete", userHandler.Delete)
+	mux.HandleFunc("/user/update", userHandler.Update)
 	// END USERS
 	// STATUS
 	statusHandler := controllerStatus.NewHandler(database.DB)

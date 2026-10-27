@@ -8,7 +8,7 @@ import (
 	"strconv"
 )
 
-func (h *Handler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPut {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		fmt.Fprintf(w, "Only PUT")

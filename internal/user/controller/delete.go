@@ -7,7 +7,7 @@ import (
 	"strconv"
 )
 
-func (h *Handler) DeleteUserHandler(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		fmt.Fprintf(w, "Only DELETE")
