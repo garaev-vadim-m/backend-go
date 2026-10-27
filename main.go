@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"hello-go-backend/internal/database"
+	controllerProduct "hello-go-backend/internal/product/controller"
 	controllerRules "hello-go-backend/internal/rules/controller"
 	controllerStatus "hello-go-backend/internal/status/controller"
 	controllerUser "hello-go-backend/internal/user/controller"
@@ -99,7 +100,12 @@ func main() {
 	mux.HandleFunc("/user-status/create", userStatusHandler.Create)
 	mux.HandleFunc("/user-status/delete", userStatusHandler.Delete)
 	mux.HandleFunc("/user-status/update", userStatusHandler.Update)
-	//USER STATUS
+	//END USER STATUS
+	//PRODUCT
+	productHandler := controllerProduct.NewHandler(database.DB)
+
+	mux.HandleFunc("/products", productHandler.GetAll)
+	//END PRODUCT
 
 	fmt.Println("Server running on :8080")
 	if err := http.ListenAndServe(":8080", corsMiddleware(mux)); err != nil {
