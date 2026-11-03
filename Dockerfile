@@ -1,27 +1,24 @@
-# Этап 1: Сборка (build stage)
-FROM golang:1.27-alpine AS builder
+# Этап 1: сборка
+FROM golang:1.22-alpine AS builder
 
 WORKDIR /app
 
-# Копируем исходный код
-COPY *.go .
-COPY internal/ internal/
-COPY go.mod .
-COPY go.sum .
+# Сначала зависимости, чтобы слой кешировался
+COPY go.mod go.sum ./
+RUN go mod download
 
-# Собираем бинарник
-RUN go build -o app .
+# Потом весь исходный код
+COPY . .
 
-# Этап 2: Runtime (финальный образ)
+RUN CGO_ENABLED=0 go build -o app .
+
+# Этап 2: финальный образ
 FROM alpine:latest
 
 WORKDIR /app
 
-# Копируем только готовый бинарник из builder
 COPY --from=builder /app/app .
 
-# Открываем порт
 EXPOSE 8080
 
-# Запускаем приложение
 CMD ["./app"]
