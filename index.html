@@ -13,8 +13,15 @@
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
   header{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:14px 18px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:5}
-  header h1{margin:0;font-size:15px;font-weight:600}
+  header > *{height:32px;display:inline-flex;align-items:center}
+  header h1{height:auto;margin:0;font-size:15px;font-weight:600;white-space:nowrap}
   header h1 small{color:var(--muted);font-weight:400}
+  header .field-inline{flex-direction:row;align-items:center;gap:8px;height:32px}
+  header .field-inline label{white-space:nowrap}
+  header .field-inline input{height:32px;width:240px;padding:0 8px}
+  header button{height:32px;padding:0 12px;white-space:nowrap}
+  header .badge{height:32px;padding:0 10px;white-space:nowrap}
+  header .muted{height:auto;white-space:nowrap}
   .grow{flex:1}
   input,select,button{font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:6px 8px}
   input:focus,select:focus{outline:2px solid var(--accent)}
@@ -47,9 +54,9 @@
 <body>
 <header>
   <h1>hello-go-backend <small>· панель</small></h1>
-  <div class="field">
+  <div class="field field-inline">
     <label for="base">API base URL</label>
-    <input id="base" style="width:240px" />
+    <input id="base" />
   </div>
   <button id="saveBase">Сохранить</button>
   <button id="checkHealth" class="primary">Проверить /health</button>
