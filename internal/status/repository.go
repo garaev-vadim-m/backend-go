@@ -87,11 +87,11 @@ func DeleteStatus(db *sql.DB, id int) error {
 
 	result, err := db.Exec(query, id)
 
-	rowsAffected, err := result.RowsAffected()
-
 	if err != nil {
 		return err
 	}
+
+	rowsAffected, err := result.RowsAffected()
 
 	if rowsAffected == 0 {
 		return fmt.Errorf("no rows affected")

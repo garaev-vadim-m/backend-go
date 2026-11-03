@@ -140,11 +140,12 @@ func DeleteUser(db *sql.DB, id int) error {
 	query := `DELETE FROM users WHERE id = $1`
 	result, err := db.Exec(query, id)
 
-	rowsAffected, err := result.RowsAffected()
-
 	if err != nil {
 		return err
 	}
+
+	rowsAffected, err := result.RowsAffected()
+
 	if rowsAffected == 0 {
 		return fmt.Errorf("no rows affected")
 	}
