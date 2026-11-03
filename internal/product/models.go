@@ -1,10 +1,13 @@
 package product
 
+import "hello-go-backend/internal/status"
+
 type Product struct {
-	ID          int     `json:"id"`
-	Name        string  `json:"name"`
-	Description *string `json:"description"`
-	StatusId    *int    `json:"status_id"`
+	ID          int            `json:"id"`
+	Name        string         `json:"name"`
+	Description *string        `json:"description"`
+	StatusId    *int           `json:"status_id"`
+	Status      *status.Status `json:"status"`
 }
 
 type CreateProductRequest struct {
