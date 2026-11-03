@@ -147,8 +147,16 @@
           options: "/statuses",
           valueKey: "id",
           labelKey: "name",
+          // В ответе status_id больше нет — статус приходит объектом.
+          source: (row) => row.status?.id,
         },
       ],
+      // Как и у users: в ответе status_id нет, показываем name/code.
+      columns: ["id", "name", "description", "status"],
+      cell: (row, col) => {
+        if (col === "status") return row.status ? `${row.status.name} (${row.status.code})` : "";
+        return row[col];
+      },
     },
   };
 

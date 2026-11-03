@@ -42,7 +42,6 @@ func scanProduct(s scanner) (*Product, error) {
 
 	if statusID.Valid {
 		id := int(statusID.Int64)
-		p.StatusId = &id
 		p.Status = &status.Status{
 			ID:   id,
 			Name: statusName.String,
