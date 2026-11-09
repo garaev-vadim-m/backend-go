@@ -3,6 +3,7 @@ package status
 import (
 	"database/sql"
 	"fmt"
+	"hello-go-backend/internal/errs"
 )
 
 func GetAllStatus(db *sql.DB) ([]*Status, error) {
@@ -93,8 +94,12 @@ func DeleteStatus(db *sql.DB, id int) error {
 
 	rowsAffected, err := result.RowsAffected()
 
+	if err != nil {
+		return err
+	}
+
 	if rowsAffected == 0 {
-		return fmt.Errorf("no rows affected")
+		return fmt.Errorf("product %d: %w", id, errs.ErrNotFound)
 	}
 	return nil
 }
