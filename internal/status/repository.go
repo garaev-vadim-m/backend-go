@@ -54,7 +54,7 @@ func GetStatus(db *sql.DB, id int) (*Status, error) {
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("status with id %d not found", id)
+			return nil, fmt.Errorf("status %d: %w", id, errs.ErrNotFound)
 		}
 		return nil, err
 	}
@@ -99,7 +99,7 @@ func DeleteStatus(db *sql.DB, id int) error {
 	}
 
 	if rowsAffected == 0 {
-		return fmt.Errorf("product %d: %w", id, errs.ErrNotFound)
+		return fmt.Errorf("status %d: %w", id, errs.ErrNotFound)
 	}
 	return nil
 }
