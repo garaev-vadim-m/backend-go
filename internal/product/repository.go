@@ -142,6 +142,10 @@ func DeleteProduct(db *sql.DB, id int) error {
 
 	rowsAffected, err := result.RowsAffected()
 
+	if err != nil {
+		return err
+	}
+
 	if rowsAffected == 0 {
 		return fmt.Errorf("product %d: %w", id, errs.ErrNotFound)
 	}
