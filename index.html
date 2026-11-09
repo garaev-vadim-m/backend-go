@@ -49,6 +49,10 @@
   #log div{background:var(--panel2);border:1px solid var(--border);border-left-width:3px;border-radius:6px;padding:8px 10px;font-size:12px;word-break:break-word}
   #log div.ok{border-left-color:var(--ok)}
   #log div.err{border-left-color:var(--danger)}
+  [data-detail-result]{margin:10px 0;padding:10px;border:1px solid var(--border);border-radius:6px;white-space:pre-wrap;word-break:break-word}
+  [data-detail-result].err{color:var(--danger);border-color:var(--danger)}
+  [data-detail-result].ok{color:var(--ok)}
+  [data-detail-result] pre{margin:6px 0 0;color:var(--text);white-space:pre-wrap}
 </style>
 </head>
 <body>
@@ -79,6 +83,7 @@
     users: {
       label: "Users",
       list: "/users",
+      get: (id) => `/user?id=${encodeURIComponent(id)}`,
       create: "/user/create",
       update: (id) => `/user/update?id=${encodeURIComponent(id)}`,
       remove: (id) => `/user/delete?id=${encodeURIComponent(id)}`,
@@ -108,6 +113,7 @@
     statuses: {
       label: "Statuses",
       list: "/statuses",
+      get: (id) => `/status?id=${encodeURIComponent(id)}`,
       create: "/status/create",
       update: (id) => `/status/update?id=${encodeURIComponent(id)}`,
       remove: (id) => `/status/delete?id=${encodeURIComponent(id)}`,
@@ -119,6 +125,7 @@
     rules: {
       label: "Rules",
       list: "/rules",
+      get: (id) => `/rule?id=${encodeURIComponent(id)}`,
       create: "/rule/create",
       update: (id) => `/rule/update?id=${encodeURIComponent(id)}`,
       remove: (id) => `/rule/delete?id=${encodeURIComponent(id)}`,
@@ -130,6 +137,7 @@
     userStatuses: {
       label: "User statuses",
       list: "/user-statuses",
+      get: (id) => `/user-status?id=${encodeURIComponent(id)}`,
       create: "/user-status/create",
       update: (id) => `/user-status/update?id=${encodeURIComponent(id)}`,
       remove: (id) => `/user-status/delete?id=${encodeURIComponent(id)}`,
@@ -141,6 +149,7 @@
     products: {
       label: "Products",
       list: "/products",
+      get: (id) => `/product?id=${encodeURIComponent(id)}`,
       create: "/product/create",
       update: (id) => `/product/update?id=${encodeURIComponent(id)}`,
       remove: (id) => `/product/delete?id=${encodeURIComponent(id)}`,
@@ -208,6 +217,11 @@
     return { ok: res.ok, status: res.status, data };
   }
 
+  function responseError(status, data) {
+    const message = typeof data === "string" ? data : (data?.error || JSON.stringify(data));
+    return `HTTP ${status}${message ? `: ${message}` : ""}`;
+  }
+
   const cell = (v) => (v === null || v === undefined ? "" : String(v));
 
   function buildBody(entity, values) {
@@ -249,6 +263,13 @@
         <button type="button" data-cancel hidden>Отмена</button>
         <input type="hidden" name="__id" />
       </form>
+      ${entity.get ? `
+        <div class="row" data-detail-form>
+          <div class="field"><label>Карточка ${entity.label} по ID</label><input type="number" min="1" step="1" data-detail-id placeholder="ID" /></div>
+          <button type="button" data-detail-load>Получить карточку</button>
+        </div>
+        <div data-detail-result class="muted" aria-live="polite">Введите существующий или несуществующий ID.</div>
+      ` : ""}
       <div data-table class="muted">Загрузка…</div>
     `;
     app.appendChild(section);
@@ -258,6 +279,43 @@
     const cancelBtn = section.querySelector("[data-cancel]");
     const idInput = form.elements.__id;
     const tableBox = section.querySelector("[data-table]");
+    const detailIdInput = section.querySelector("[data-detail-id]");
+    const detailResult = section.querySelector("[data-detail-result]");
+
+    if (detailIdInput) {
+      const loadDetail = async () => {
+        const id = detailIdInput.value.trim();
+        if (!id) {
+          detailResult.className = "err";
+          detailResult.textContent = `Укажите ID для сущности «${entity.label}».`;
+          return;
+        }
+        detailResult.className = "muted";
+        detailResult.textContent = `Запрос ${entity.get(id)}…`;
+        try {
+          const { ok, status, data } = await api("GET", entity.get(id));
+          if (!ok) {
+            detailResult.className = "err";
+            detailResult.textContent = responseError(status, data);
+            log(`${entity.label}: GET id=${id}: ${responseError(status, data)}`, "err");
+            return;
+          }
+          detailResult.className = "ok";
+          detailResult.replaceChildren(document.createTextNode(`HTTP ${status}: карточка «${entity.label}»`));
+          const pre = document.createElement("pre");
+          pre.textContent = JSON.stringify(data, null, 2);
+          detailResult.appendChild(pre);
+        } catch (e) {
+          detailResult.className = "err";
+          detailResult.textContent = e.message;
+          log(`${entity.label}: ${e.message}`, "err");
+        }
+      };
+      section.querySelector("[data-detail-load]").addEventListener("click", loadDetail);
+      detailIdInput.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter") loadDetail();
+      });
+    }
 
     function resetForm() {
       form.reset();
@@ -329,7 +387,7 @@
           if (!confirm(`Удалить id=${btn.dataset.del} из ${entity.label}?`)) return;
           try {
             const { ok, status, data } = await api("DELETE", entity.remove(btn.dataset.del));
-            if (!ok) throw new Error(`HTTP ${status}: ${typeof data === "string" ? data : ""}`);
+            if (!ok) throw new Error(responseError(status, data));
             log(`${entity.label}: id=${btn.dataset.del} удалён`, "ok");
             load();
           } catch (e) {
@@ -345,7 +403,7 @@
       await fillSelects();
       try {
         const { ok, status, data } = await api("GET", entity.list);
-        if (!ok) throw new Error(`HTTP ${status}: ${typeof data === "string" ? data : ""}`);
+        if (!ok) throw new Error(responseError(status, data));
         render(Array.isArray(data) ? data : []);
       } catch (e) {
         tableBox.innerHTML = `<span class="muted">${e.message}</span>`;
@@ -365,7 +423,7 @@
           id ? entity.update(id) : entity.create,
           body
         );
-        if (!ok) throw new Error(`HTTP ${status}: ${typeof data === "string" ? data : JSON.stringify(data)}`);
+        if (!ok) throw new Error(responseError(status, data));
         log(`${entity.label}: ${id ? `id=${id} обновлён` : "создано"}`, "ok");
         resetForm();
         load();

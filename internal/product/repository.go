@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"hello-go-backend/internal/errs"
 	"hello-go-backend/internal/status"
 )
 
@@ -84,7 +85,7 @@ func GetProduct(db *sql.DB, id int) (*Product, error) {
 	p, err := scanProduct(db.QueryRow(query, id))
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("product with id %d not found", id)
+			return nil, fmt.Errorf("product %d: %w", id, errs.ErrNotFound)
 		}
 		return nil, err
 	}
@@ -142,7 +143,7 @@ func DeleteProduct(db *sql.DB, id int) error {
 	rowsAffected, err := result.RowsAffected()
 
 	if rowsAffected == 0 {
-		return fmt.Errorf("product with id %d not found", id)
+		return fmt.Errorf("product %d: %w", id, errs.ErrNotFound)
 	}
 
 	return nil
