@@ -79,35 +79,35 @@ func main() {
 	// END USERS
 	// STATUS
 	statusHandler := controllerStatus.NewHandler(database.DB)
-	mux.HandleFunc("/statuses", statusHandler.GetAll)
-	mux.HandleFunc("/status", statusHandler.Get)
-	mux.HandleFunc("/status/create", statusHandler.Create)
-	mux.HandleFunc("/status/delete", statusHandler.Delete)
-	mux.HandleFunc("/status/update", statusHandler.Update)
+	mux.HandleFunc("GET /statuses", statusHandler.GetAll)
+	mux.HandleFunc("GET /status", statusHandler.Get)
+	mux.HandleFunc("POST /status/create", statusHandler.Create)
+	mux.HandleFunc("DELETE /status/delete", statusHandler.Delete)
+	mux.HandleFunc("PUT /status/update", statusHandler.Update)
 	// END STATUS
 	//RULES
 	rulesHandler := controllerRules.NewHandler(database.DB)
-	mux.HandleFunc("/rules", rulesHandler.GetAll)
-	mux.HandleFunc("/rule", rulesHandler.Get)
-	mux.HandleFunc("/rule/create", rulesHandler.Create)
-	mux.HandleFunc("/rule/delete", rulesHandler.Delete)
-	mux.HandleFunc("/rule/update", rulesHandler.Update)
+	mux.HandleFunc("GET /rules", rulesHandler.GetAll)
+	mux.HandleFunc("GET /rule", rulesHandler.Get)
+	mux.HandleFunc("POST /rule/create", rulesHandler.Create)
+	mux.HandleFunc("DELETE /rule/delete", rulesHandler.Delete)
+	mux.HandleFunc("PUT /rule/update", rulesHandler.Update)
 	//END RULES
 	//USER STATUS
 	userStatusHandler := controllerUserStatus.NewHandler(database.DB)
-	mux.HandleFunc("/user-statuses", userStatusHandler.GetAll)
-	mux.HandleFunc("/user-status", userStatusHandler.Get)
-	mux.HandleFunc("/user-status/create", userStatusHandler.Create)
-	mux.HandleFunc("/user-status/delete", userStatusHandler.Delete)
-	mux.HandleFunc("/user-status/update", userStatusHandler.Update)
+	mux.HandleFunc("GET /user-statuses", userStatusHandler.GetAll)
+	mux.HandleFunc("GET /user-status", userStatusHandler.Get)
+	mux.HandleFunc("POST /user-status/create", userStatusHandler.Create)
+	mux.HandleFunc("DELETE /user-status/delete", userStatusHandler.Delete)
+	mux.HandleFunc("PUT /user-status/update", userStatusHandler.Update)
 	//END USER STATUS
 	//PRODUCT
 	productHandler := controllerProduct.NewHandler(database.DB)
-	mux.HandleFunc("/products", productHandler.GetAll)
-	mux.HandleFunc("/product", productHandler.Get)
-	mux.HandleFunc("/product/create", productHandler.Create)
-	mux.HandleFunc("/product/delete", productHandler.Delete)
-	mux.HandleFunc("/product/update", productHandler.Update)
+	mux.HandleFunc("GET /products", productHandler.GetAll)
+	mux.HandleFunc("GET /product", productHandler.Get)
+	mux.HandleFunc("POST /product/create", productHandler.Create)
+	mux.HandleFunc("DELETE /product/delete", productHandler.Delete)
+	mux.HandleFunc("PUT /product/update", productHandler.Update)
 	//END PRODUCT
 
 	fmt.Println("Server running on :8080")

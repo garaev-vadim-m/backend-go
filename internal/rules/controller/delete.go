@@ -8,12 +8,6 @@ import (
 )
 
 func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		fmt.Fprintf(w, "Only DELETE allowed")
-		return
-	}
-
 	idStr := r.URL.Query().Get("id")
 
 	if idStr == "" {

@@ -8,11 +8,6 @@ import (
 )
 
 func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		fmt.Fprintf(w, "Only DELETE allowed")
-		return
-	}
 	idStr := r.URL.Query().Get("id")
 	if idStr == "" {
 		w.WriteHeader(http.StatusBadRequest)
@@ -25,8 +20,8 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "invalid id: %v", err)
 		return
 	}
-	err = status.DeleteStatus(h.db, id)
-	if err != nil {
+
+	if err = status.DeleteStatus(h.db, id); err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		fmt.Fprintf(w, "Error: %v", err)
 		return

@@ -8,14 +8,9 @@ import (
 )
 
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		fmt.Fprintf(w, "Only POST allowed")
-		return
-	}
 	var req status.CreateStatusRequest
-	err := json.NewDecoder(r.Body).Decode(&req)
-	if err != nil {
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "Invalid JSON: %v", err)
 		return
