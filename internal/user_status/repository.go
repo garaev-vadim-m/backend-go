@@ -3,6 +3,7 @@ package userstatus
 import (
 	"database/sql"
 	"fmt"
+	"hello-go-backend/internal/errs"
 )
 
 func GetAllStatus(db *sql.DB) ([]*UserStatus, error) {
@@ -53,7 +54,7 @@ func GetStatus(db *sql.DB, id int) (*UserStatus, error) {
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("status with id %d not found", id)
+			return nil, fmt.Errorf("user status %d: %w", id, errs.ErrNotFound)
 		}
 		return nil, err
 	}
@@ -93,15 +94,19 @@ func DeleteStatus(db *sql.DB, id int) error {
 
 	rowsAffected, err := result.RowsAffected()
 
+	if err != nil {
+		return err
+	}
+
 	if rowsAffected == 0 {
-		return fmt.Errorf("no rows affected")
+		return fmt.Errorf("user status %d: %w", id, errs.ErrNotFound)
 	}
 	return nil
 }
 
 func UpdateStatus(db *sql.DB, id int, name string, code string) (*UserStatus, error) {
 	query := `
-	UPDATE status
+	UPDATE user_status
 	SET name = $1, code = $2
 	WHERE id = $3
 	RETURNING id, name, code
@@ -117,7 +122,7 @@ func UpdateStatus(db *sql.DB, id int, name string, code string) (*UserStatus, er
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("status with id %d not found", id)
+			return nil, fmt.Errorf("user status with id %d not found", id)
 		}
 		return nil, err
 	}

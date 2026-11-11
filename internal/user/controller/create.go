@@ -2,27 +2,33 @@ package controller
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"hello-go-backend/internal/httpx"
 	"hello-go-backend/internal/user"
+	"log"
 	"net/http"
 )
 
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	var req user.CreateUserRequest
+
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "invalid request: %v", err)
+		httpx.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid JSON: %w", err))
+		return
+	}
+
+	if req.Name == "" {
+		httpx.WriteError(w, http.StatusBadRequest, errors.New("name is required"))
 		return
 	}
 
 	u, err := user.CreateUser(h.db, req.Name, req.Female, req.StatusID, req.RuleID)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, "error creating user: %v", err)
+		log.Printf("user create: %v", err)
+		httpx.WriteError(w, http.StatusInternalServerError, errors.New("internal error"))
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(u)
+	httpx.WriteJSON(w, http.StatusCreated, u)
 }

@@ -3,6 +3,7 @@ package rules
 import (
 	"database/sql"
 	"fmt"
+	"hello-go-backend/internal/errs"
 )
 
 func GetAllRules(db *sql.DB) ([]*Rule, error) {
@@ -54,7 +55,7 @@ func GetRule(db *sql.DB, id int) (*Rule, error) {
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("status with id %d not found", id)
+			return nil, fmt.Errorf("rule %d: %w", id, errs.ErrNotFound)
 		}
 		return nil, err
 	}
@@ -102,7 +103,7 @@ func UpdateRule(db *sql.DB, id int, name string, code string) (*Rule, error) {
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("status with id %d not found", id)
+			return nil, fmt.Errorf("rule with id %d not found", id)
 		}
 		return nil, err
 	}
@@ -110,19 +111,22 @@ func UpdateRule(db *sql.DB, id int, name string, code string) (*Rule, error) {
 	return rules, nil
 }
 
-func DeleteRules(db *sql.DB, id int) error {
+func DeleteRule(db *sql.DB, id int) error {
 	query := `DELETE FROM rules WHERE id = $1`
 
 	result, err := db.Exec(query, id)
-
 	if err != nil {
 		return err
 	}
 
 	rowsAffected, err := result.RowsAffected()
 
+	if err != nil {
+		return err
+	}
+
 	if rowsAffected == 0 {
-		return fmt.Errorf("no rows affected")
+		return fmt.Errorf("rule %d: %w", id, errs.ErrNotFound)
 	}
 	return nil
 }

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"hello-go-backend/internal/errs"
 	"hello-go-backend/internal/rules"
 	userstatus "hello-go-backend/internal/user_status"
 )
@@ -77,7 +78,7 @@ func GetUser(db *sql.DB, id int) (*User, error) {
 	u, err := scanUser(db.QueryRow(query, id))
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("user with id %d not found", id)
+			return nil, fmt.Errorf("user %d: %w", id, errs.ErrNotFound)
 		}
 		return nil, err
 	}
@@ -146,8 +147,12 @@ func DeleteUser(db *sql.DB, id int) error {
 
 	rowsAffected, err := result.RowsAffected()
 
+	if err != nil {
+		return err
+	}
+
 	if rowsAffected == 0 {
-		return fmt.Errorf("no rows affected")
+		return fmt.Errorf("user %d: %w", id, errs.ErrNotFound)
 	}
 	return nil
 }

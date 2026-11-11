@@ -1,31 +1,30 @@
 package controller
 
 import (
-	"fmt"
+	"errors"
+	"hello-go-backend/internal/errs"
+	"hello-go-backend/internal/httpx"
 	"hello-go-backend/internal/user"
+	"log"
 	"net/http"
-	"strconv"
 )
 
 func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
-	idStr := r.URL.Query().Get("id")
-
-	id, err := strconv.Atoi(idStr)
-
+	id, err := httpx.ParseID(r)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "invalid id: %v", err)
+		httpx.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	err = user.DeleteUser(h.db, id)
-
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "invalid id: %v", err)
+	if err = user.DeleteUser(h.db, id); err != nil {
+		if errors.Is(err, errs.ErrNotFound) {
+			httpx.WriteError(w, http.StatusNotFound, err)
+			return
+		}
+		log.Printf("user delete: %v", err)
+		httpx.WriteError(w, http.StatusInternalServerError, errors.New("internal error"))
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "user deleted")
+	w.WriteHeader(http.StatusNoContent)
 }
