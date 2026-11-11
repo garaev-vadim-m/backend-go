@@ -1,32 +1,32 @@
 package controller
 
 import (
-	"encoding/json"
-	"fmt"
+	"errors"
+	"hello-go-backend/internal/errs"
+	"hello-go-backend/internal/httpx"
 	"hello-go-backend/internal/status"
+	"log"
 	"net/http"
-	"strconv"
 )
 
 func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
-	idStr := r.URL.Query().Get("id")
-	if idStr == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "id is required")
-		return
-	}
-	id, err := strconv.Atoi(idStr)
+	id, err := httpx.ParseID(r)
+
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "invalid id: %v", err)
+		httpx.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
 	st, err := status.GetStatus(h.db, id)
+
 	if err != nil {
-		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprintf(w, "Error: %v", err)
+		if errors.Is(err, errs.ErrNotFound) {
+			httpx.WriteError(w, http.StatusNotFound, err)
+			return
+		}
+		log.Printf("status get: %v", err)
+		httpx.WriteError(w, http.StatusInternalServerError, errors.New("internal error"))
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(st)
+
+	httpx.WriteJSON(w, http.StatusOK, st)
 }
