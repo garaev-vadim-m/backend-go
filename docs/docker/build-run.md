@@ -73,3 +73,54 @@ docker ps -a      # есть (остановлен)
 # Перезапуск
 docker start my-backend
 ```
+
+## Многоэтапная сборка (multi-stage)
+
+В проекте Dockerfile состоит из двух этапов:
+
+```dockerfile
+# Этап 1: сборка
+FROM golang:1.22-alpine AS builder
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 go build -o app .
+
+# Этап 2: финальный образ
+FROM alpine:latest
+WORKDIR /app
+COPY --from=builder /app/app .
+EXPOSE 8080
+CMD ["./app"]
+```
+
+Схема:
+
+```
+builder (golang:1.22-alpine)          final (alpine:latest)
+┌────────────────────────┐            ┌──────────────────────┐
+│ go.mod, go.sum         │            │ только бинарник app  │
+│ исходники              │  ────────► │ EXPOSE 8080          │
+│ go build -o app        │  COPY app  │ CMD ["./app"]        │
+└────────────────────────┘            └──────────────────────┘
+```
+
+Зачем так:
+
+- в финальный образ не попадают Go-компилятор и исходники — образ меньше;
+- `COPY go.mod go.sum` и `go mod download` вынесены в отдельные слои, поэтому зависимости кешируются и не перекачиваются при изменении кода;
+- `CGO_ENABLED=0` даёт статический бинарник, который работает в `alpine` без дополнительных библиотек.
+
+## .dockerignore
+
+```
+.git
+*.md
+docker-compose.yml
+Dockerfile
+```
+
+Файлы из `.dockerignore` не попадают в build context: сборка быстрее, а лишнее не копируется в образ.
+
+> Версия Go в Dockerfile (`golang:1.22-alpine`) — это версия сборки. Она может отличаться от версии в `go.mod`; при обновлении Go меняйте оба места.
