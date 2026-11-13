@@ -15,7 +15,7 @@
 
 ### A1. Расширить таблицу `users`
 
-- [ ] добавить `email VARCHAR(255) NOT NULL UNIQUE`
+- [x] добавить `email VARCHAR(255) NOT NULL UNIQUE`
 - [ ] добавить `password_hash VARCHAR(255) NOT NULL`
 - [ ] добавить `created_at`, `updated_at TIMESTAMPTZ`
 - [ ] миграция `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` (текущие миграции только создают таблицы)

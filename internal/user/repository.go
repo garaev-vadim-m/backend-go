@@ -13,7 +13,7 @@ import (
 // константы, чтобы list/get/create/update не разъезжались по формату.
 // Алиас источника везде один и тот же — u (users, ins CTE или upd CTE).
 const userColumns = `
-	u.id, u.name, u.female,u.email,u.surname,
+	u.id, u.name, u.surname, u.female, u.email,
 	us.id, us.name, us.code,
 	r.id, r.name, r.code`
 
@@ -121,17 +121,16 @@ func GetAllUsers(db *sql.DB) ([]*User, error) {
 
 // CreateUser создаёт пользователя и возвращает его со статусом и ролью.
 // statusID/ruleID — указатели: nil записывается как NULL.
-func CreateUser(db *sql.DB, name string, female *string, statusID *int, ruleID *int) (*User, error) {
-	// RETURNING не умеет JOIN, поэтому вставляем в CTE и джойним уже его.
+func CreateUser(db *sql.DB, name string, surname *string, female *string, email *string, statusID *int, ruleID *int) (*User, error) {
 	query := `
 	WITH ins AS (
-		INSERT INTO users (name, female, status_id, rule_id)
-		VALUES ($1, $2, $3, $4)
-		RETURNING id, name, female, status_id, rule_id
+		INSERT INTO users (name, surname, female, email, status_id, rule_id)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		RETURNING id, name, surname, female, email, status_id, rule_id
 	)
 	SELECT` + userColumns + ` FROM ins u` + userJoins
 
-	u, err := scanUser(db.QueryRow(query, name, female, statusID, ruleID))
+	u, err := scanUser(db.QueryRow(query, name, surname, female, email, statusID, ruleID))
 	if err != nil {
 		return nil, err
 	}
@@ -160,21 +159,20 @@ func DeleteUser(db *sql.DB, id int) error {
 }
 
 // UpdateUser обновляет пользователя и возвращает его со статусом и ролью.
-func UpdateUser(db *sql.DB, id int, name string, female *string, statusID *int, ruleID *int) (*User, error) {
-	// Как и в CreateUser: UPDATE в CTE, чтобы JOIN был на свежих данных.
+func UpdateUser(db *sql.DB, id int, name string, surname *string, female *string, email *string, statusID *int, ruleID *int) (*User, error) {
 	query := `
 	WITH upd AS (
 		UPDATE users
-		SET name = $1, female = $2, status_id = $3, rule_id = $4
-		WHERE id = $5
-		RETURNING id, name, female, status_id, rule_id
+		SET name = $1, surname = $2, female = $3, email = $4, status_id = $5, rule_id = $6
+		WHERE id = $7
+		RETURNING id, name, surname, female, email, status_id, rule_id
 	)
 	SELECT` + userColumns + ` FROM upd u` + userJoins
 
-	u, err := scanUser(db.QueryRow(query, name, female, statusID, ruleID, id))
+	u, err := scanUser(db.QueryRow(query, name, surname, female, email, statusID, ruleID, id))
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("user with id %d not found", id)
+			return nil, fmt.Errorf("user %d: %w", id, errs.ErrNotFound)
 		}
 		return nil, err
 	}

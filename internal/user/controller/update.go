@@ -30,7 +30,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	u, err := user.UpdateUser(h.db, id, req.Name, req.Female, req.StatusID, req.RuleID)
+	u, err := user.UpdateUser(h.db, id, req.Name, req.Surname, req.Email, req.Female, req.StatusID, req.RuleID)
 	if err != nil {
 		if errors.Is(err, errs.ErrNotFound) {
 			httpx.WriteError(w, http.StatusNotFound, err)
