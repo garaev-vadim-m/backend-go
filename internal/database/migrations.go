@@ -17,10 +17,17 @@ func RunMigrations() error {
 	CREATE TABLE IF NOT EXISTS users (
 		id SERIAL PRIMARY KEY,
 		name VARCHAR(255) NOT NULL,
+		surname VARCHAR(255),
 		female VARCHAR(10),
+		email VARCHAR(255),
 		status_id INTEGER REFERENCES user_status(id),
 		rule_id INTEGER REFERENCES rules(id)
 	);
+	`
+
+	alterUsersTable := `
+	ALTER TABLE users ADD COLUMN IF NOT EXISTS surname VARCHAR(255);
+	ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255);
 	`
 
 	createUserStatusTable := `
@@ -57,6 +64,7 @@ func RunMigrations() error {
 		{"rules", createRulesTable},
 		{"user_status", createUserStatusTable},
 		{"users", createUsersTable},
+		{"users_alert", alterUsersTable},
 		{"products", createProductsTable},
 	}
 

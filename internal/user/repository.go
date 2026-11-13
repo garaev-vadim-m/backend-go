@@ -13,7 +13,7 @@ import (
 // константы, чтобы list/get/create/update не разъезжались по формату.
 // Алиас источника везде один и тот же — u (users, ins CTE или upd CTE).
 const userColumns = `
-	u.id, u.name, u.female,
+	u.id, u.name, u.female,u.email,u.surname,
 	us.id, us.name, us.code,
 	r.id, r.name, r.code`
 
@@ -40,7 +40,9 @@ func scanUser(s scanner) (*User, error) {
 	err := s.Scan(
 		&u.ID,
 		&u.Name,
+		&u.Surname,
 		&u.Female,
+		&u.Email,
 		&statusID,
 		&statusName,
 		&statusCode,
