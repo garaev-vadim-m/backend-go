@@ -199,6 +199,6 @@
 - [ ] конфиг в структуру вместо `os.Getenv` по месту
 - [ ] graceful shutdown (`signal.NotifyContext` + `http.Server.Shutdown`)
 - [ ] политики `ON DELETE` для внешних ключей
-- [ ] инструмент миграций (`golang-migrate`) вместо ручного `CREATE TABLE`
+- [x] инструмент миграций (`golang-migrate`) вместо ручного `CREATE TABLE`
 - [ ] CI (сборка, `go vet`, тесты)
 - [ ] rate limiting и security-заголовки
