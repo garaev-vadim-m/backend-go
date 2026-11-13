@@ -89,7 +89,9 @@
       remove: (id) => `/user/delete?id=${encodeURIComponent(id)}`,
       fields: [
         { name: "name", label: "name", type: "text", required: true },
+        { name: "surname", label: "surname", type: "text" },
         { name: "female", label: "female", type: "text" },
+        { name: "email", label: "email", type: "email" },
         {
           name: "status_id", label: "status_id", type: "select",
           options: "/user-statuses", valueKey: "id", labelKey: "name",
@@ -103,7 +105,7 @@
         },
       ],
       // В ответе status_id/rule_id больше нет — показываем name/code.
-      columns: ["id", "name", "female", "status", "rule"],
+      columns: ["id", "name", "surname", "female", "email", "status", "rule"],
       cell: (row, col) => {
         if (col === "status") return row.status ? `${row.status.name} (${row.status.code})` : "";
         if (col === "rule") return row.rule ? `${row.rule.name} (${row.rule.code})` : "";

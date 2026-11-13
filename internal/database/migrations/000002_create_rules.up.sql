@@ -1,0 +1,5 @@
+CREATE TABLE rules (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    code VARCHAR(255) NOT NULL
+);

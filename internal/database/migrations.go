@@ -1,83 +1,57 @@
 package database
 
 import (
+	"embed"
+	"errors"
+	"fmt"
 	"log"
+	"net/url"
+	"os"
+
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 )
 
+//go:embed migrations/*.sql
+var migrationsFS embed.FS
+
 func RunMigrations() error {
-	createStatusTable := `
-	CREATE TABLE IF NOT EXISTS status (
-		id SERIAL PRIMARY KEY,
-		name VARCHAR(255) NOT NULL,
-		code VARCHAR(255) NOT NULL
-	);
-	`
-
-	createUsersTable := `
-	CREATE TABLE IF NOT EXISTS users (
-		id SERIAL PRIMARY KEY,
-		name VARCHAR(255) NOT NULL,
-		surname VARCHAR(255),
-		female VARCHAR(10),
-		email VARCHAR(255),
-		status_id INTEGER REFERENCES user_status(id),
-		rule_id INTEGER REFERENCES rules(id)
-	);
-	`
-
-	alterUsersTable := `
-	ALTER TABLE users ADD COLUMN IF NOT EXISTS surname VARCHAR(255);
-	ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255);
-	`
-
-	createUserStatusTable := `
-	CREATE TABLE IF NOT EXISTS user_status (
-		id SERIAL PRIMARY KEY,
-		name VARCHAR(255) NOT NULL,
-		code VARCHAR(255) NOT NULL
-	);
-	`
-
-	createRulesTable := `
-	CREATE TABLE IF NOT EXISTS rules (
-		id SERIAL PRIMARY KEY,
-		name VARCHAR(255) NOT NULL,
-		code VARCHAR(255) NOT NULL
-	);
-	`
-
-	createProductsTable := `
-	CREATE TABLE IF NOT EXISTS products (
-		id SERIAL PRIMARY KEY,
-		name VARCHAR(255) NOT NULL,
-		description VARCHAR(255),
-		status_id INTEGER REFERENCES status(id)
-	);
-	`
-
-	// Порядок важен! Сначала таблицы без зависимостей
-	tables := []struct {
-		name string
-		sql  string
-	}{
-		{"status", createStatusTable},
-		{"rules", createRulesTable},
-		{"user_status", createUserStatusTable},
-		{"users", createUsersTable},
-		{"users_alert", alterUsersTable},
-		{"products", createProductsTable},
+	src, err := iofs.New(migrationsFS, "migrations")
+	if err != nil {
+		return fmt.Errorf("migrations source: %w", err)
 	}
 
-	for _, table := range tables {
-		log.Printf("Creating %s table...", table.name)
-
-		if _, err := DB.Exec(table.sql); err != nil {
-			log.Printf("Error creating %s table: %v", table.name, err)
-			return err
-		}
-
-		log.Printf("✓ %s table created", table.name)
+	// migrate открывает собственное соединение по URL,
+	// поэтому закрыть его через m.Close() безопасно и не затрагивает DB.
+	m, err := migrate.NewWithSourceInstance("iofs", src, databaseURL())
+	if err != nil {
+		return fmt.Errorf("migrate init: %w", err)
 	}
+	defer m.Close()
+
+	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
+		return fmt.Errorf("migrate up: %w", err)
+	}
+
+	version, dirty, err := m.Version()
+	if err != nil && !errors.Is(err, migrate.ErrNilVersion) {
+		return fmt.Errorf("migrate version: %w", err)
+	}
+	log.Printf("✓ migrations applied, version=%d dirty=%v", version, dirty)
 
 	return nil
+}
+
+// databaseURL собирает строку подключения в формате postgres://...
+// url.UserPassword экранирует спецсимволы в пароле.
+func databaseURL() string {
+	u := url.URL{
+		Scheme:   "postgres",
+		User:     url.UserPassword(os.Getenv("DB_USER"), os.Getenv("DB_PASSWORD")),
+		Host:     os.Getenv("DB_HOST") + ":" + os.Getenv("DB_PORT"),
+		Path:     "/" + os.Getenv("DB_NAME"),
+		RawQuery: "sslmode=disable",
+	}
+	return u.String()
 }
