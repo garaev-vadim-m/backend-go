@@ -76,6 +76,7 @@ func main() {
 	mux.HandleFunc("POST /user/create", userHandler.Create)
 	mux.HandleFunc("DELETE /user/delete", userHandler.Delete)
 	mux.HandleFunc("PUT /user/update", userHandler.Update)
+	mux.HandleFunc("POST /user/login", userHandler.Login)
 	// END USERS
 	// STATUS
 	statusHandler := controllerStatus.NewHandler(database.DB)

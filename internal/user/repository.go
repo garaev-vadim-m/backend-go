@@ -119,25 +119,6 @@ func GetAllUsers(db *sql.DB) ([]*User, error) {
 	return users, nil
 }
 
-// CreateUser создаёт пользователя и возвращает его со статусом и ролью.
-// statusID/ruleID — указатели: nil записывается как NULL.
-func CreateUser(db *sql.DB, name string, surname *string, female *string, email *string, statusID *int, ruleID *int) (*User, error) {
-	query := `
-	WITH ins AS (
-		INSERT INTO users (name, surname, female, email, status_id, rule_id)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id, name, surname, female, email, status_id, rule_id
-	)
-	SELECT` + userColumns + ` FROM ins u` + userJoins
-
-	u, err := scanUser(db.QueryRow(query, name, surname, female, email, statusID, ruleID))
-	if err != nil {
-		return nil, err
-	}
-
-	return u, nil
-}
-
 func DeleteUser(db *sql.DB, id int) error {
 	query := `DELETE FROM users WHERE id = $1`
 	result, err := db.Exec(query, id)
@@ -158,24 +139,54 @@ func DeleteUser(db *sql.DB, id int) error {
 	return nil
 }
 
-// UpdateUser обновляет пользователя и возвращает его со статусом и ролью.
-func UpdateUser(db *sql.DB, id int, name string, surname *string, female *string, email *string, statusID *int, ruleID *int) (*User, error) {
+func CreateUser(db *sql.DB, name string, surname *string, female *string, email *string, password *string, statusID *int, ruleID *int) (*User, error) {
+	query := `
+	WITH ins AS (
+		INSERT INTO users (name, surname, female, email, password, status_id, rule_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		RETURNING id, name, surname, female, email, status_id, rule_id
+	)
+	SELECT` + userColumns + ` FROM ins u` + userJoins
+
+	u, err := scanUser(db.QueryRow(query, name, surname, female, email, password, statusID, ruleID))
+	if err != nil {
+		return nil, err
+	}
+	return u, nil
+}
+
+func UpdateUser(db *sql.DB, id int, name string, surname *string, female *string, email *string, password *string, statusID *int, ruleID *int) (*User, error) {
 	query := `
 	WITH upd AS (
 		UPDATE users
-		SET name = $1, surname = $2, female = $3, email = $4, status_id = $5, rule_id = $6
-		WHERE id = $7
+		SET name = $1, surname = $2, female = $3, email = $4,
+			password = COALESCE(NULLIF($5, ''), password), status_id = $6, rule_id = $7
+		WHERE id = $8
 		RETURNING id, name, surname, female, email, status_id, rule_id
 	)
 	SELECT` + userColumns + ` FROM upd u` + userJoins
 
-	u, err := scanUser(db.QueryRow(query, name, surname, female, email, statusID, ruleID, id))
+	u, err := scanUser(db.QueryRow(query, name, surname, female, email, password, statusID, ruleID, id))
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("user %d: %w", id, errs.ErrNotFound)
 		}
 		return nil, err
 	}
-
 	return u, nil
+}
+
+func GetUserPasswordByEmail(db *sql.DB, email string) (int, string, error) {
+	var id int
+	var pwd sql.NullString
+
+	err := db.QueryRow(`SELECT id, password FROM users WHERE email = $1`, email).Scan(&id, &pwd)
+	if err == sql.ErrNoRows || (err == nil && !pwd.Valid) {
+		return 0, "", fmt.Errorf("user %s: %w", email, errs.ErrNotFound)
+	}
+	if err != nil {
+		return 0, "", err
+	}
+
+	return id, pwd.String, nil
 }

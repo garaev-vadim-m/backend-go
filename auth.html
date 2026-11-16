@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>hello-go-backend · Авторизация</title>
+<style>
+  :root{
+    --bg:#0f1216; --panel:#161a20; --panel2:#1d222a; --border:#2b313b;
+    --text:#e7eaee; --muted:#98a2b3; --accent:#4c8bf5; --ok:#3fb950;
+    --danger:#e5534b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:grid;place-items:center;padding:18px;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  main{width:min(100%,380px);padding:24px;background:var(--panel);border:1px solid var(--border);border-radius:10px;box-shadow:0 16px 40px rgba(0,0,0,.22)}
+  h1{margin:0 0 4px;font-size:20px;font-weight:600}
+  .subtitle{margin:0 0 22px;color:var(--muted)}
+  .field{display:flex;flex-direction:column;gap:5px;margin-bottom:14px}
+  label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  input{width:100%;height:38px;padding:6px 10px;font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--border);border-radius:6px}
+  input:focus{outline:2px solid var(--accent);outline-offset:1px}
+  button{width:100%;height:38px;padding:0 12px;font:inherit;color:#fff;background:var(--accent);border:1px solid var(--accent);border-radius:6px;cursor:pointer}
+  button:hover{filter:brightness(1.08)}
+  .status{min-height:20px;margin-top:14px;color:var(--muted);font-size:12px}
+  .status.ok{color:var(--ok)}
+  .status.err{color:var(--danger)}
+</style>
+</head>
+<body>
+<main>
+  <h1>hello-go-backend</h1>
+  <p class="subtitle">Войдите в панель управления</p>
+
+  <form id="authForm">
+    <div class="field">
+      <label for="email">Email</label>
+      <input id="email" name="email" type="email" autocomplete="username" required />
+    </div>
+    <div class="field">
+      <label for="password">Пароль</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required />
+    </div>
+    <button type="submit">Войти</button>
+  </form>
+  <div id="status" class="status" aria-live="polite"></div>
+</main>
+
+<script>
+(() => {
+  "use strict";
+
+  const STORAGE_KEY = "hello-go-backend.auth";
+  const form = document.getElementById("authForm");
+  const emailInput = document.getElementById("email");
+  const status = document.getElementById("status");
+  const API_BASE = (localStorage.getItem("hello-go-backend.apiBase") || "http://localhost:8080").replace(/\/+$/, "");
+
+  let cachedAuth = null;
+  try {
+    cachedAuth = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+  } catch {
+    localStorage.removeItem(STORAGE_KEY);
+  }
+
+  if (cachedAuth?.user?.email) {
+    emailInput.value = cachedAuth.user.email;
+    status.className = "status ok";
+    status.textContent = `Сессия сохранена для «${cachedAuth.user.email}».`;
+  }
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const email = emailInput.value.trim();
+    const password = form.elements.password.value;
+    status.className = "status";
+    status.textContent = "Проверка данных…";
+    try {
+      const response = await fetch(`${API_BASE}/user/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const text = await response.text();
+      let data = null;
+      try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+      if (!response.ok) {
+        const message = typeof data === "string" ? data : (data?.error || "Не удалось войти");
+        throw new Error(`HTTP ${response.status}: ${message}`);
+      }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        user: data,
+        authenticatedAt: new Date().toISOString(),
+      }));
+      status.className = "status ok";
+      status.textContent = `Авторизация сохранена для «${data?.email || email}».`;
+      form.elements.password.value = "";
+    } catch (error) {
+      status.className = "status err";
+      status.textContent = error.message;
+    }
+  });
+})();
+</script>
+</body>
+</html>
