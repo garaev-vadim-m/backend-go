@@ -30,6 +30,7 @@
   input:focus,select:focus{outline:2px solid var(--accent)}
   button{cursor:pointer}
   button:hover{border-color:var(--accent)}
+  button:disabled{cursor:not-allowed;opacity:.5}
   button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
   button.danger{color:var(--danger)}
   main{padding:18px;display:grid;gap:18px}
@@ -72,7 +73,7 @@
   <span id="health" class="badge">не проверено</span>
   <span class="grow"></span>
   <span id="session" class="session">Сессия не сохранена</span>
-  <a href="auth.html">Авторизация</a>
+  <a id="authLink" href="auth.html">Авторизация</a>
 </header>
 <main id="app"></main>
 <div id="log"></div>
@@ -190,20 +191,26 @@
   baseInput.value = localStorage.getItem(STORAGE_KEY) || DEFAULT_BASE;
 
   const sessionBox = document.getElementById("session");
+  const authLink = document.getElementById("authLink");
+  let currentUser = null;
   try {
     const auth = JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) || "null");
-    const user = auth?.user;
-    if (user) {
-      const identity = user.email || user.name || `id=${user.id}`;
+    currentUser = auth?.user || null;
+    if (currentUser) {
+      const identity = currentUser.email || currentUser.name || `id=${currentUser.id}`;
       sessionBox.replaceChildren(document.createTextNode("Вошёл: "));
       const identityNode = document.createElement("strong");
       identityNode.textContent = identity;
       sessionBox.appendChild(identityNode);
       sessionBox.className = "session badge ok";
+      authLink.hidden = true;
     }
   } catch {
     localStorage.removeItem(AUTH_STORAGE_KEY);
   }
+
+  const role = String(currentUser?.rule?.code || currentUser?.rule?.name || "").toLowerCase();
+  const canManageEntities = role === "admin";
 
   const apiBase = () => baseInput.value.trim().replace(/\/+$/, "");
 
@@ -308,6 +315,11 @@
     const detailIdInput = section.querySelector("[data-detail-id]");
     const detailResult = section.querySelector("[data-detail-result]");
 
+    if (!canManageEntities) {
+      submitBtn.disabled = true;
+      submitBtn.title = "Только пользователь с ролью admin может изменять данные";
+    }
+
     if (detailIdInput) {
       const loadDetail = async () => {
         const id = detailIdInput.value.trim();
@@ -385,9 +397,10 @@
       const body = rows
         .map((row) => {
           const tds = cols.map((c) => `<td>${cell(entity.cell ? entity.cell(row, c) : row[c])}</td>`).join("");
+          const mutationDisabled = !canManageEntities;
           return `<tr>${tds}<td class="actions">
-            <button data-edit="${cell(row.id)}">Изменить</button>
-            <button data-del="${cell(row.id)}" class="danger">Удалить</button>
+            <button data-edit="${cell(row.id)}" ${mutationDisabled ? "disabled title=\"Только роль admin\"" : ""}>Изменить</button>
+            <button data-del="${cell(row.id)}" class="danger" ${mutationDisabled ? "disabled title=\"Только роль admin\"" : ""}>Удалить</button>
           </td></tr>`;
         })
         .join("");
@@ -445,6 +458,10 @@
 
     form.addEventListener("submit", async (ev) => {
       ev.preventDefault();
+      if (!canManageEntities) {
+        log(`${entity.label}: недостаточно прав для изменения данных`, "err");
+        return;
+      }
       const values = {};
       for (const f of entity.fields) values[f.name] = form.elements[f.name].value;
       const body = buildBody(entity, values);

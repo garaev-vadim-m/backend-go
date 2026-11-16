@@ -94,6 +94,7 @@
       status.className = "status ok";
       status.textContent = `Авторизация сохранена для «${data?.email || email}».`;
       form.elements.password.value = "";
+      window.location.href = "index.html";
     } catch (error) {
       status.className = "status err";
       status.textContent = error.message;
