@@ -8,38 +8,18 @@
 docker compose up --build
 ```
 
-## Эндпоинты
-
-| Маршрут     | Описание            |
-|-------------|---------------------|
-| `GET /`     | Hello World         |
-| `GET /health` | Healthcheck (ping DB) |
-
-## Формат пользователя
-
-`GET /users`, `GET /user?id=`, `POST /user/create` и `PUT /user/update?id=` отдают
-одинаковый JSON — статус и роль уже развёрнуты в объекты:
-
-```json
-{
-  "id": 1,
-  "name": "Vadim",
-  "female": "Garaev",
-  "status": { "id": 1, "name": "Активен", "code": "active" },
-  "rule": { "id": 1, "name": "Admin", "code": "admin" }
-}
-```
-
-`status` и `rule` равны `null`, если не назначены. Идентификаторы `status_id` и
-`rule_id` передаются только в теле запросов `POST`/`PUT` (`null` = не назначено).
-
 ## Веб-панель (`index.html`)
 
 В корне есть `index.html` — самодостаточная страница (чистый JS, без сборки) для
-работы с API: CRUD для `users`, `status`, `rules`, `user_status`, плюс индикатор
+работы с API: CRUD для `users`, `status`, `rules`, `user_status`, `products`, плюс индикатор
 `/health`. Откройте файл в браузере (двойным щелчком или через любой статический
 сервер) и укажите базовый URL API в поле сверху (по умолчанию
 `http://localhost:8080`; значение сохраняется в `localStorage`).
+
+`auth.html` содержит форму входа по email и паролю. После успешной авторизации
+сессия сохраняется в `localStorage`, а пользователь переходит в `index.html`.
+Операции создания, изменения и удаления в панели доступны только пользователю
+с ролью `admin`; это ограничение пока проверяется на стороне клиента.
 
 Запросы из браузера идут с другого origin (`file://` или другой порт), поэтому
 бэкенд обёрнут в CORS-middleware (`corsMiddleware` в `main.go`): он отдаёт
@@ -74,6 +54,6 @@ go run .
 
 ## Стек
 
-- Go 1.27
+- Go 1.22
 - PostgreSQL 15
 - Docker / Docker Compose
