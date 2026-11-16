@@ -9,13 +9,14 @@ import (
 // Статус и роль приходят уже развёрнутыми объектами (JOIN), поэтому
 // status_id/rule_id в ответе не дублируются — они нужны только на запись.
 type User struct {
-	ID      int                    `json:"id"`
-	Name    string                 `json:"name"`
-	Surname *string                `json:"surname"`
-	Email   *string                `json:"email"`
-	Female  *string                `json:"female"`
-	Status  *userstatus.UserStatus `json:"status"`
-	Rule    *rules.Rule            `json:"rule"`
+	ID       int                    `json:"id"`
+	Name     string                 `json:"name"`
+	Surname  *string                `json:"surname"`
+	Female   *string                `json:"female"`
+	Email    *string                `json:"email"`
+	Password *string                `json:"-"`
+	Status   *userstatus.UserStatus `json:"status"`
+	Rule     *rules.Rule            `json:"rule"`
 }
 
 // CreateUserRequest структура для парсинга JSON запроса.
@@ -25,6 +26,7 @@ type CreateUserRequest struct {
 	Female   *string `json:"female"`
 	Surname  *string `json:"surname"`
 	Email    *string `json:"email"`
+	Password *string `json:"password"`
 	StatusID *int    `json:"status_id"`
 	RuleID   *int    `json:"rule_id"`
 }
@@ -34,6 +36,7 @@ type UpdateUserRequest struct {
 	Female   *string `json:"female"`
 	Surname  *string `json:"surname"`
 	Email    *string `json:"email"`
+	Password *string `json:"password"`
 	StatusID *int    `json:"status_id"`
 	RuleID   *int    `json:"rule_id"`
 }

@@ -16,12 +16,15 @@
   header > *{height:32px;display:inline-flex;align-items:center}
   header h1{height:auto;margin:0;font-size:15px;font-weight:600;white-space:nowrap}
   header h1 small{color:var(--muted);font-weight:400}
+  header .admin-label{color:var(--accent);font-size:11px;text-transform:uppercase;letter-spacing:.08em}
   header .field-inline{flex-direction:row;align-items:center;gap:8px;height:32px}
   header .field-inline label{white-space:nowrap}
   header .field-inline input{height:32px;width:240px;padding:0 8px}
   header button{height:32px;padding:0 12px;white-space:nowrap}
   header .badge{height:32px;padding:0 10px;white-space:nowrap}
   header .muted{height:auto;white-space:nowrap}
+  header a{color:var(--text);text-decoration:none;border:1px solid var(--border);border-radius:6px;padding:0 10px}
+  header a:hover{border-color:var(--accent);color:#fff}
   .grow{flex:1}
   input,select,button{font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:6px 8px}
   input:focus,select:focus{outline:2px solid var(--accent)}
@@ -53,11 +56,13 @@
   [data-detail-result].err{color:var(--danger);border-color:var(--danger)}
   [data-detail-result].ok{color:var(--ok)}
   [data-detail-result] pre{margin:6px 0 0;color:var(--text);white-space:pre-wrap}
+  .session{gap:8px;color:var(--muted);font-size:12px}
+  .session strong{color:var(--text);font-weight:500}
 </style>
 </head>
 <body>
 <header>
-  <h1>hello-go-backend <small>· панель</small></h1>
+  <h1>hello-go-backend <small>· панель</small> <span class="admin-label">admin</span></h1>
   <div class="field field-inline">
     <label for="base">API base URL</label>
     <input id="base" />
@@ -66,7 +71,8 @@
   <button id="checkHealth" class="primary">Проверить /health</button>
   <span id="health" class="badge">не проверено</span>
   <span class="grow"></span>
-  <span class="muted">CORS: бэкенд отдаёт Access-Control-Allow-Origin</span>
+  <span id="session" class="session">Сессия не сохранена</span>
+  <a href="auth.html">Авторизация</a>
 </header>
 <main id="app"></main>
 <div id="log"></div>
@@ -77,6 +83,7 @@
 
   const STORAGE_KEY = "hello-go-backend.apiBase";
   const DEFAULT_BASE = "http://localhost:8080";
+  const AUTH_STORAGE_KEY = "hello-go-backend.auth";
 
   // Описание сущностей API. Пути и тела запросов повторяют роуты main.go.
   const ENTITIES = {
@@ -92,6 +99,7 @@
         { name: "surname", label: "surname", type: "text" },
         { name: "female", label: "female", type: "text" },
         { name: "email", label: "email", type: "email" },
+        { name: "password", label: "password", type: "password", required: true },
         {
           name: "status_id", label: "status_id", type: "select",
           options: "/user-statuses", valueKey: "id", labelKey: "name",
@@ -180,6 +188,22 @@
 
   const baseInput = document.getElementById("base");
   baseInput.value = localStorage.getItem(STORAGE_KEY) || DEFAULT_BASE;
+
+  const sessionBox = document.getElementById("session");
+  try {
+    const auth = JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) || "null");
+    const user = auth?.user;
+    if (user) {
+      const identity = user.email || user.name || `id=${user.id}`;
+      sessionBox.replaceChildren(document.createTextNode("Вошёл: "));
+      const identityNode = document.createElement("strong");
+      identityNode.textContent = identity;
+      sessionBox.appendChild(identityNode);
+      sessionBox.className = "session badge ok";
+    }
+  } catch {
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+  }
 
   const apiBase = () => baseInput.value.trim().replace(/\/+$/, "");
 
@@ -323,6 +347,7 @@
       form.reset();
       idInput.value = "";
       submitBtn.textContent = "Создать";
+      if (form.elements.password) form.elements.password.required = true;
       cancelBtn.hidden = true;
     }
 
@@ -379,6 +404,11 @@
           }
           idInput.value = cell(row.id);
           submitBtn.textContent = "Сохранить";
+          if (form.elements.password) {
+            form.elements.password.value = "";
+            form.elements.password.required = false;
+            form.elements.password.placeholder = "Оставьте пустым без изменения";
+          }
           cancelBtn.hidden = false;
           form.scrollIntoView({ block: "nearest", behavior: "smooth" });
         });

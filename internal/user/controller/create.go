@@ -22,8 +22,12 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, http.StatusBadRequest, errors.New("name is required"))
 		return
 	}
+	if req.Password == nil || *req.Password == "" {
+		httpx.WriteError(w, http.StatusBadRequest, errors.New("password is required"))
+		return
+	}
 
-	u, err := user.CreateUser(h.db, req.Name, req.Surname, req.Female, req.Email, req.StatusID, req.RuleID)
+	u, err := user.CreateUser(h.db, req.Name, req.Surname, req.Female, req.Email, req.Password, req.StatusID, req.RuleID)
 	if err != nil {
 		log.Printf("user create: %v", err)
 		httpx.WriteError(w, http.StatusInternalServerError, errors.New("internal error"))
