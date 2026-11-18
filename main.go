@@ -60,6 +60,10 @@ func main() {
 		panic(err)
 	}
 
+	if err := database.SeedAdmin(); err != nil {
+		panic(err)
+	}
+
 	mux := http.NewServeMux()
 
 	// Регистрируем обработчики

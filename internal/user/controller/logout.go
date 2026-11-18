@@ -17,7 +17,7 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := session.Delete(h.db, token); err != nil {
+	if err := session.Revoke(h.db, token); err != nil {
 		log.Printf("user logout: %v", err)
 		httpx.WriteError(w, http.StatusInternalServerError, errors.New("internal error"))
 		return
