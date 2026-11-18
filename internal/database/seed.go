@@ -7,7 +7,7 @@ import (
 	"os"
 )
 
-// SeedAdmin создает технического админа, если его еще нет.
+// SeedAdmin создает технического админа и дефолтные роли, если их еще нет.
 // Логин и пароль берутся из ADMIN_EMAIL / ADMIN_PASSWORD, по умолчанию email@email / 1235.
 func SeedAdmin() error {
 	email := getenvDefault("ADMIN_EMAIL", "email@email")
@@ -16,6 +16,9 @@ func SeedAdmin() error {
 
 	ruleID, err := ensureAdminRule()
 	if err != nil {
+		return err
+	}
+	if _, err := ensureUserRule(); err != nil {
 		return err
 	}
 
@@ -71,6 +74,27 @@ func ensureAdminRule() (int, error) {
 	err = DB.QueryRow(`INSERT INTO rules (name, code) VALUES ('admin', 'admin') RETURNING id`).Scan(&id)
 	if err != nil {
 		return 0, fmt.Errorf("seed admin rule insert: %w", err)
+	}
+	return id, nil
+}
+
+func ensureUserRule() (int, error) {
+	var id int
+	err := DB.QueryRow(`
+		SELECT id FROM rules
+		WHERE lower(code) = 'user' OR lower(name) = 'user' OR lower(name) = 'пользователь'
+		ORDER BY id LIMIT 1`,
+	).Scan(&id)
+	if err == nil {
+		return id, nil
+	}
+	if err != sql.ErrNoRows {
+		return 0, fmt.Errorf("seed user rule check: %w", err)
+	}
+
+	err = DB.QueryRow(`INSERT INTO rules (name, code) VALUES ('Пользователь', 'user') RETURNING id`).Scan(&id)
+	if err != nil {
+		return 0, fmt.Errorf("seed user rule insert: %w", err)
 	}
 	return id, nil
 }
