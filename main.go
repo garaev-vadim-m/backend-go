@@ -80,6 +80,7 @@ func main() {
 	mux.HandleFunc("PUT /user/update", userHandler.Update)
 	mux.HandleFunc("POST /user/login", userHandler.Login)
 	mux.HandleFunc("POST /user/logout", userHandler.Logout)
+	mux.HandleFunc("POST /user/register", userHandler.Register)
 	// END USERS
 	// STATUS
 	statusHandler := controllerStatus.NewHandler(database.DB)
