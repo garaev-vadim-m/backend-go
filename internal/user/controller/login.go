@@ -6,9 +6,11 @@ import (
 	"errors"
 	"hello-go-backend/internal/errs"
 	"hello-go-backend/internal/httpx"
+	"hello-go-backend/internal/session"
 	"hello-go-backend/internal/user"
 	"log"
 	"net/http"
+	"time"
 )
 
 type loginRequest struct {
@@ -46,12 +48,12 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	u, err := user.GetUser(h.db, id)
+	token, err := session.Create(h.db, id, 24*time.Hour)
 	if err != nil {
 		log.Printf("user login get: %v", err)
 		httpx.WriteError(w, http.StatusInternalServerError, errors.New("internal error"))
 		return
 	}
 
-	httpx.WriteJSON(w, http.StatusOK, u)
+	httpx.WriteJSON(w, http.StatusOK, map[string]string{"token": token})
 }

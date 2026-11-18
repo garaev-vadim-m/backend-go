@@ -36,6 +36,7 @@ func corsMiddleware(next http.Handler) http.Handler {
 		w.Header().Set("Vary", "Origin")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Accept")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Accept, Authorization")
 		w.Header().Set("Access-Control-Max-Age", "86400")
 
 		if r.Method == http.MethodOptions {
@@ -74,6 +75,7 @@ func main() {
 	mux.HandleFunc("DELETE /user/delete", userHandler.Delete)
 	mux.HandleFunc("PUT /user/update", userHandler.Update)
 	mux.HandleFunc("POST /user/login", userHandler.Login)
+	mux.HandleFunc("POST /user/logout", userHandler.Logout)
 	// END USERS
 	// STATUS
 	statusHandler := controllerStatus.NewHandler(database.DB)
