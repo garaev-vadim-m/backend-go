@@ -21,6 +21,7 @@
   input:focus{outline:2px solid var(--accent);outline-offset:1px}
   button{width:100%;height:38px;padding:0 12px;font:inherit;color:#fff;background:var(--accent);border:1px solid var(--accent);border-radius:6px;cursor:pointer}
   button:hover{filter:brightness(1.08)}
+  #logout{margin-top:10px}
   .status{min-height:20px;margin-top:14px;color:var(--muted);font-size:12px}
   .status.ok{color:var(--ok)}
   .status.err{color:var(--danger)}
@@ -42,6 +43,7 @@
     </div>
     <button type="submit">Войти</button>
   </form>
+  <button id="logout" type="button" hidden>Выйти</button>
   <div id="status" class="status" aria-live="polite"></div>
 </main>
 
@@ -52,8 +54,34 @@
   const STORAGE_KEY = "hello-go-backend.auth";
   const form = document.getElementById("authForm");
   const emailInput = document.getElementById("email");
+  const logoutBtn = document.getElementById("logout");
   const status = document.getElementById("status");
   const API_BASE = (localStorage.getItem("hello-go-backend.apiBase") || "http://localhost:8080").replace(/\/+$/, "");
+
+  function authHeaders(token) {
+    const headers = { Accept: "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    return headers;
+  }
+
+  function showSession(auth) {
+    const email = auth?.user?.email || "";
+    if (email) emailInput.value = email;
+    logoutBtn.hidden = false;
+    status.className = "status ok";
+    status.textContent = email
+      ? `Сессия сохранена для «${email}».`
+      : "Сессия сохранена.";
+  }
+
+  async function fetchUser(email, token) {
+    const response = await fetch(`${API_BASE}/users`, { headers: authHeaders(token) });
+    if (!response.ok) return null;
+    const data = await response.json();
+    if (!Array.isArray(data)) return null;
+    const normalized = email.toLowerCase();
+    return data.find((u) => String(u.email || "").toLowerCase() === normalized) || null;
+  }
 
   let cachedAuth = null;
   try {
@@ -61,12 +89,7 @@
   } catch {
     localStorage.removeItem(STORAGE_KEY);
   }
-
-  if (cachedAuth?.user?.email) {
-    emailInput.value = cachedAuth.user.email;
-    status.className = "status ok";
-    status.textContent = `Сессия сохранена для «${cachedAuth.user.email}».`;
-  }
+  if (cachedAuth) showSession(cachedAuth);
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -87,24 +110,48 @@
         const message = typeof data === "string" ? data : (data?.error || "Не удалось войти");
         throw new Error(`HTTP ${response.status}: ${message}`);
       }
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        user: data,
-        authenticatedAt: new Date().toISOString(),
-      }));
+
+      const token = data && typeof data === "object" ? String(data.token || "") : "";
+      const user = (await fetchUser(email, token)) || { email };
+      const auth = { token, user, authenticatedAt: new Date().toISOString() };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(auth));
       form.elements.password.value = "";
-      const role = String(data?.rule?.code || data?.rule?.name || "").toLowerCase();
+      showSession(auth);
+
+      const role = String(user.rule?.code || user.rule?.name || "").toLowerCase();
+      const identity = user.email || email;
       if (role === "admin") {
-        status.className = "status ok";
-        status.textContent = `Авторизация сохранена для «${data?.email || email}». Переход в админ-панель…`;
+        status.textContent = `Вход выполнен для «${identity}». Переход в админ-панель…`;
         window.location.href = "admin_panel.html";
       } else {
-        status.className = "status ok";
-        status.textContent = `Вход выполнен для «${data?.email || email}».`;
+        status.textContent = `Вход выполнен для «${identity}».`;
       }
     } catch (error) {
       status.className = "status err";
       status.textContent = error.message;
     }
+  });
+
+  logoutBtn.addEventListener("click", async () => {
+    let auth = null;
+    try { auth = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null"); } catch {}
+    let serverError = null;
+    if (auth?.token) {
+      try {
+        await fetch(`${API_BASE}/user/logout`, {
+          method: "POST",
+          headers: authHeaders(auth.token),
+        });
+      } catch (e) {
+        serverError = e.message;
+      }
+    }
+    localStorage.removeItem(STORAGE_KEY);
+    logoutBtn.hidden = true;
+    status.className = serverError ? "status err" : "status";
+    status.textContent = serverError
+      ? `Сессия удалена локально, но сервер не ответил: ${serverError}`
+      : "Сессия завершена.";
   });
 })();
 </script>

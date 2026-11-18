@@ -74,6 +74,7 @@
   <span class="grow"></span>
   <span id="session" class="session">Сессия не сохранена</span>
   <a id="authLink" href="auth.html">Авторизация</a>
+  <button id="logout" type="button" hidden>Выйти</button>
 </header>
 <main id="app"></main>
 <div id="log"></div>
@@ -193,17 +194,21 @@
   const sessionBox = document.getElementById("session");
   const authLink = document.getElementById("authLink");
   let currentUser = null;
+  let authToken = null;
+  const logoutBtn = document.getElementById("logout");
   try {
     const auth = JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) || "null");
     currentUser = auth?.user || null;
-    if (currentUser) {
-      const identity = currentUser.email || currentUser.name || `id=${currentUser.id}`;
+    authToken = auth?.token || null;
+    if (currentUser || authToken) {
+      const identity = currentUser?.email || currentUser?.name || (currentUser ? `id=${currentUser.id}` : "пользователь");
       sessionBox.replaceChildren(document.createTextNode("Вошёл: "));
       const identityNode = document.createElement("strong");
       identityNode.textContent = identity;
       sessionBox.appendChild(identityNode);
       sessionBox.className = "session badge ok";
       authLink.hidden = true;
+      logoutBtn.hidden = false;
     }
   } catch {
     localStorage.removeItem(AUTH_STORAGE_KEY);
@@ -227,7 +232,8 @@
   // разбирает как JSON, так и текстовые ответы (часть хендлеров отдаёт текст).
   async function api(method, path, body) {
     const url = apiBase() + path;
-    const opts = { method, headers: {} };
+    const opts = { method, headers: { Accept: "application/json" } };
+    if (authToken) opts.headers["Authorization"] = `Bearer ${authToken}`;
     if (body !== undefined) {
       opts.headers["Content-Type"] = "application/json";
       opts.body = JSON.stringify(body);
@@ -515,6 +521,21 @@
       badge.textContent = "недоступен";
       log(`/health: ${e.message}`, "err");
     }
+  });
+
+  logoutBtn.addEventListener("click", async () => {
+    if (authToken) {
+      try {
+        await fetch(apiBase() + "/user/logout", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${authToken}` },
+        });
+      } catch (e) {
+        log(`logout: ${e.message}`, "err");
+      }
+    }
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+    window.location.href = "auth.html";
   });
 
   reloadAll();
