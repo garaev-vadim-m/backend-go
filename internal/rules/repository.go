@@ -2,6 +2,7 @@ package rules
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"hello-go-backend/internal/errs"
 )
@@ -129,4 +130,17 @@ func DeleteRule(db *sql.DB, id int) error {
 		return fmt.Errorf("rule %d: %w", id, errs.ErrNotFound)
 	}
 	return nil
+}
+
+// GetIDByCode возвращает id роли по её code (например, "user").
+func GetIDByCode(db *sql.DB, code string) (int, error) {
+	var id int
+	err := db.QueryRow(`SELECT id FROM rules WHERE code = $1 ORDER BY id LIMIT 1`, code).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, fmt.Errorf("rule %s: %w", code, errs.ErrNotFound)
+	}
+	if err != nil {
+		return 0, err
+	}
+	return id, nil
 }
