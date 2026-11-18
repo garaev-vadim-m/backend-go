@@ -1,6 +1,6 @@
-# hello-go-backend
+﻿# hello-go-backend
 
-Минимальный Go-бэкенд с PostgreSQL в Docker.
+Небольшой Go-бэкенд с PostgreSQL и Docker.
 
 ## Быстрый старт
 
@@ -8,45 +8,36 @@
 docker compose up --build
 ```
 
-## Веб-панель (`index.html`)
+## Веб-страницы
 
-В корне есть `index.html` — самодостаточная страница (чистый JS, без сборки) для
-работы с API: CRUD для `users`, `status`, `rules`, `user_status`, `products`, плюс индикатор
-`/health`. Откройте файл в браузере (двойным щелчком или через любой статический
-сервер) и укажите базовый URL API в поле сверху (по умолчанию
-`http://localhost:8080`; значение сохраняется в `localStorage`).
+- `index.html` — простая витрина интернет-магазина с карточками товаров (данные из `/products`).
+- `admin_panel.html` — самодостаточная страница (ванильный JS) для работы с API: CRUD для `users`, `status`, `rules`, `user_status`, `products`, проверка `/health`.
+- `auth.html` — форма входа по email и паролю (`/user/login`).
 
-`auth.html` содержит форму входа по email и паролю. После успешной авторизации
-сессия сохраняется в `localStorage`, а пользователь переходит в `index.html`.
-Операции создания, изменения и удаления в панели доступны только пользователю
-с ролью `admin`; это ограничение пока проверяется на стороне клиента.
+После успешной авторизации сессия сохраняется в `localStorage`. Пользователь с ролью `admin` перенаправляется в `admin_panel.html`, пользователь с другой ролью остаётся на странице авторизации. Операции создания/изменения/удаления в панели доступны только пользователю с ролью `admin` (проверка также на стороне панели).
 
-Запросы из браузера идут с другого origin (`file://` или другой порт), поэтому
-бэкенд обёрнут в CORS-middleware (`corsMiddleware` в `main.go`): он отдаёт
-`Access-Control-Allow-Origin/-Methods/-Headers` и отвечает `204` на preflight
-`OPTIONS`. Если в панели появляется «Сетевая/CORS ошибка» — проверьте, что
-бэкенд запущен и доступен по указанному URL.
+Страницы обращаются к API по `API base URL` (по умолчанию `http://localhost:8080`; значение хранится в `localStorage`). Сервер отдаёт CORS-заголовки (`corsMiddleware` в `main.go`) и отвечает `204` на preflight `OPTIONS`.
 
 ## Локальная разработка (без Docker)
 
-1. Запустить PostgreSQL и создать БД `myapp`
-2. Экспортировать переменные окружения:
+1. Поднимите PostgreSQL и создайте БД `myapp`
+2. Экспортируйте переменные окружения:
 
 ```bash
 export DB_HOST=localhost DB_PORT=5432 DB_USER=postgres DB_PASSWORD=postgres DB_NAME=myapp
 ```
 
-Подключение к базе данных
+Подключение к базе в контейнере:
 ```bash
-docker-compose exec postgres psql -U postgres -d myapp
+docker compose exec postgres psql -U postgres -d myapp
 ```
 
-Проверка таблиц БД
+Проверить таблицы:
 ```bash
-docker-compose exec postgres psql -U postgres -d myapp -c "\dt"
+docker compose exec postgres psql -U postgres -d myapp -c "\dt"
 ```
 
-3. Запустить:
+3. Запуск:
 
 ```bash
 go run .

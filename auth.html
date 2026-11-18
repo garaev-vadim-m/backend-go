@@ -29,7 +29,7 @@
 <body>
 <main>
   <h1>hello-go-backend</h1>
-  <p class="subtitle">Войдите в панель управления</p>
+  <p class="subtitle">Войдите в аккаунт</p>
 
   <form id="authForm">
     <div class="field">
@@ -91,10 +91,16 @@
         user: data,
         authenticatedAt: new Date().toISOString(),
       }));
-      status.className = "status ok";
-      status.textContent = `Авторизация сохранена для «${data?.email || email}».`;
       form.elements.password.value = "";
-      window.location.href = "index.html";
+      const role = String(data?.rule?.code || data?.rule?.name || "").toLowerCase();
+      if (role === "admin") {
+        status.className = "status ok";
+        status.textContent = `Авторизация сохранена для «${data?.email || email}». Переход в админ-панель…`;
+        window.location.href = "admin_panel.html";
+      } else {
+        status.className = "status ok";
+        status.textContent = `Вход выполнен для «${data?.email || email}».`;
+      }
     } catch (error) {
       status.className = "status err";
       status.textContent = error.message;

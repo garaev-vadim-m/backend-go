@@ -26,9 +26,6 @@ func HealthHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "OK")
 }
 
-// corsMiddleware добавляет CORS-заголовки, чтобы index.html мог обращаться
-// к API с другого origin (file://, http://localhost:5500 и т.п.) и отвечает
-// на preflight-запросы (OPTIONS) без вызова основного обработчика.
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
