@@ -11,12 +11,14 @@
     --danger:#e5534b;
   }
   *{box-sizing:border-box}
+  [hidden]{display:none !important}
   body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
   header{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:14px 18px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:5}
   header > *{height:32px;display:inline-flex;align-items:center}
   header h1{height:auto;margin:0;font-size:15px;font-weight:600;white-space:nowrap}
   header h1 small{color:var(--muted);font-weight:400}
   header .admin-label{color:var(--accent);font-size:11px;text-transform:uppercase;letter-spacing:.08em}
+  header .admin-label.guest{color:var(--muted)}
   header .field-inline{flex-direction:row;align-items:center;gap:8px;height:32px}
   header .field-inline label{white-space:nowrap}
   header .field-inline input{height:32px;width:240px;padding:0 8px}
@@ -63,7 +65,7 @@
 </head>
 <body>
 <header>
-  <h1>hello-go-backend <small>· панель</small> <span class="admin-label">admin</span></h1>
+  <h1>hello-go-backend <small>· панель</small> <span id="roleLabel" class="admin-label" title="Роль из локальной сессии; сервер пока не проверяет права">admin</span></h1>
   <div class="field field-inline">
     <label for="base">API base URL</label>
     <input id="base" />
@@ -97,11 +99,14 @@
       update: (id) => `/user/update?id=${encodeURIComponent(id)}`,
       remove: (id) => `/user/delete?id=${encodeURIComponent(id)}`,
       fields: [
-        { name: "name", label: "name", type: "text", required: true },
-        { name: "surname", label: "surname", type: "text" },
-        { name: "female", label: "female", type: "text" },
-        { name: "email", label: "email", type: "email" },
-        { name: "password", label: "password", type: "password", required: true },
+        { name: "name", label: "name", type: "text", required: true, maxLength: 255 },
+        { name: "surname", label: "surname", type: "text", maxLength: 255 },
+        { name: "female", label: "female", type: "text", maxLength: 10 },
+        { name: "email", label: "email", type: "email", maxLength: 255 },
+        {
+          name: "password", label: "password", type: "password",
+          required: true, minLength: 8, maxLength: 72,
+        },
         {
           name: "status_id", label: "status_id", type: "select",
           options: "/user-statuses", valueKey: "id", labelKey: "name",
@@ -115,10 +120,16 @@
         },
       ],
       // В ответе status_id/rule_id больше нет — показываем name/code.
-      columns: ["id", "name", "surname", "female", "email", "status", "rule"],
+      columns: ["id", "name", "surname", "female", "email", "status", "rule", "created_at", "updated_at"],
       cell: (row, col) => {
         if (col === "status") return row.status ? `${row.status.name} (${row.status.code})` : "";
         if (col === "rule") return row.rule ? `${row.rule.name} (${row.rule.code})` : "";
+        if (col === "created_at" || col === "updated_at") {
+          const value = row[col];
+          if (!value) return "";
+          const date = new Date(value);
+          return Number.isNaN(date.getTime()) ? value : date.toLocaleString("ru-RU");
+        }
         return row[col];
       },
     },
@@ -130,8 +141,8 @@
       update: (id) => `/status/update?id=${encodeURIComponent(id)}`,
       remove: (id) => `/status/delete?id=${encodeURIComponent(id)}`,
       fields: [
-        { name: "name", label: "name", type: "text", required: true },
-        { name: "code", label: "code", type: "text" },
+        { name: "name", label: "name", type: "text", required: true, maxLength: 255 },
+        { name: "code", label: "code", type: "text", maxLength: 255 },
       ],
     },
     rules: {
@@ -142,8 +153,8 @@
       update: (id) => `/rule/update?id=${encodeURIComponent(id)}`,
       remove: (id) => `/rule/delete?id=${encodeURIComponent(id)}`,
       fields: [
-        { name: "name", label: "name", type: "text", required: true },
-        { name: "code", label: "code", type: "text" },
+        { name: "name", label: "name", type: "text", required: true, maxLength: 255 },
+        { name: "code", label: "code", type: "text", maxLength: 255 },
       ],
     },
     userStatuses: {
@@ -154,8 +165,8 @@
       update: (id) => `/user-status/update?id=${encodeURIComponent(id)}`,
       remove: (id) => `/user-status/delete?id=${encodeURIComponent(id)}`,
       fields: [
-        { name: "name", label: "name", type: "text", required: true },
-        { name: "code", label: "code", type: "text" },
+        { name: "name", label: "name", type: "text", required: true, maxLength: 255 },
+        { name: "code", label: "code", type: "text", maxLength: 255 },
       ],
     },
     products: {
@@ -166,8 +177,8 @@
       update: (id) => `/product/update?id=${encodeURIComponent(id)}`,
       remove: (id) => `/product/delete?id=${encodeURIComponent(id)}`,
       fields: [
-        { name: "name", label: "name", type: "text", required: true },
-        { name: "description", label: "description", type: "text" },
+        { name: "name", label: "name", type: "text", required: true, maxLength: 255 },
+        { name: "description", label: "description", type: "text", maxLength: 255 },
         {
           name: "status_id",
           label: "status_id",
@@ -193,6 +204,7 @@
 
   const sessionBox = document.getElementById("session");
   const authLink = document.getElementById("authLink");
+  const roleLabel = document.getElementById("roleLabel");
   let currentUser = null;
   let authToken = null;
   const logoutBtn = document.getElementById("logout");
@@ -217,7 +229,24 @@
   const role = String(currentUser?.rule?.code || currentUser?.rule?.name || "").toLowerCase();
   const canManageEntities = role === "admin";
 
+  if (role) {
+    roleLabel.textContent = role;
+    roleLabel.classList.toggle("guest", !canManageEntities);
+  } else {
+    roleLabel.hidden = true;
+  }
+
   const apiBase = () => baseInput.value.trim().replace(/\/+$/, "");
+
+  let authRedirecting = false;
+
+  function clearSession(message) {
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+    if (message) log(message, "err");
+    if (authRedirecting) return;
+    authRedirecting = true;
+    window.location.href = "auth.html";
+  }
 
   function log(message, kind) {
     const box = document.getElementById("log");
@@ -252,6 +281,10 @@
     let data = null;
     if (text) {
       try { data = JSON.parse(text); } catch { data = text; }
+    }
+    if (res.status === 401 || res.status === 403) {
+      const message = typeof data === "string" ? data : data?.error;
+      clearSession(`HTTP ${res.status}${message ? `: ${message}` : ""}: сессия сброшена`);
     }
     return { ok: res.ok, status: res.status, data };
   }
@@ -291,13 +324,20 @@
         <span class="grow"></span>
       </h2>
       <form data-form class="row">
-        ${entity.fields.map((f) => `
+        ${entity.fields.map((f) => {
+          const attrs = [
+            f.required ? "required" : "",
+            f.minLength ? `minlength="${f.minLength}"` : "",
+            f.maxLength ? `maxlength="${f.maxLength}"` : "",
+          ].filter(Boolean).join(" ");
+          return `
           <div class="field">
             <label>${f.label}</label>
             ${f.type === "select"
-              ? `<select name="${f.name}" ${f.required ? "required" : ""}></select>`
-              : `<input name="${f.name}" type="${f.type}" ${f.required ? "required" : ""} />`}
-          </div>`).join("")}
+              ? `<select name="${f.name}" ${attrs}></select>`
+              : `<input name="${f.name}" type="${f.type}" ${attrs} />`}
+          </div>`;
+        }).join("")}
         <button type="submit" class="primary" data-submit>Создать</button>
         <button type="button" data-cancel hidden>Отмена</button>
         <input type="hidden" name="__id" />
@@ -365,7 +405,10 @@
       form.reset();
       idInput.value = "";
       submitBtn.textContent = "Создать";
-      if (form.elements.password) form.elements.password.required = true;
+      if (form.elements.password) {
+        form.elements.password.required = true;
+        form.elements.password.placeholder = "";
+      }
       cancelBtn.hidden = true;
     }
 
@@ -470,6 +513,17 @@
       }
       const values = {};
       for (const f of entity.fields) values[f.name] = form.elements[f.name].value;
+
+      const passwordField = form.elements.password;
+      if (passwordField?.value) {
+        const bytes = new TextEncoder().encode(passwordField.value).length;
+        if (bytes < 8 || bytes > 72) {
+          log(`${entity.label}: пароль должен быть 8–72 байта (сейчас ${bytes})`, "err");
+          passwordField.focus();
+          return;
+        }
+      }
+
       const body = buildBody(entity, values);
       const id = idInput.value;
       try {
@@ -526,14 +580,13 @@
   logoutBtn.addEventListener("click", async () => {
     if (authToken) {
       try {
-        await fetch(apiBase() + "/user/logout", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${authToken}` },
-        });
+        const { ok, status, data } = await api("POST", "/user/logout");
+        if (!ok && status !== 401) log(`logout: ${responseError(status, data)}`, "err");
       } catch (e) {
         log(`logout: ${e.message}`, "err");
       }
     }
+    if (authRedirecting) return;
     localStorage.removeItem(AUTH_STORAGE_KEY);
     window.location.href = "auth.html";
   });
