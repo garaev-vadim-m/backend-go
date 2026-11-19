@@ -55,7 +55,10 @@ httpx.WriteError(w, http.StatusBadRequest, errors.New("name is required"))
 ```go
 type CreateUserRequest struct {
     Name     string  `json:"name"`
+    Surname  *string `json:"surname"`
     Female   *string `json:"female"`
+    Email    *string `json:"email"`
+    Password *string `json:"password"`
     StatusID *int    `json:"status_id"`
     RuleID   *int    `json:"rule_id"`
 }
@@ -69,11 +72,14 @@ type CreateUserRequest struct {
 
 | Структура           | Назначение             | Поля                                     |
 |---------------------|------------------------|------------------------------------------|
-| `CreateUserRequest` | разобрать тело `POST`  | `name`, `female`, `status_id`, `rule_id` |
-| `UpdateUserRequest` | разобрать тело `PUT`   | `name`, `female`, `status_id`, `rule_id` |
-| `User`              | отдать клиенту         | `id`, `name`, `female`, `status`, `rule` |
+| `CreateUserRequest` | разобрать тело `POST`  | `name`, `surname`, `female`, `email`, `password`, `status_id`, `rule_id` |
+| `UpdateUserRequest` | разобрать тело `PUT`   | `name`, `surname`, `female`, `email`, `password`, `status_id`, `rule_id` |
+| `User`              | отдать клиенту         | `id`, `name`, `surname`, `female`, `email`, `status`, `rule` |
 
-`status_id` / `rule_id` передаются только на запись. В ответе вместо них — развёрнутые объекты `status` и `rule`.
+`status_id` / `rule_id` передаются только на запись. В ответе вместо них — развёрнутые объекты `status` и `rule`. Пароль в ответе не отдаётся: у `User` поле `Password` помечено `json:"-"`.
+
+При регистрации используется отдельная структура без `rule_id` и `status_id`:
+роль `user` назначается сервером, а не клиентом.
 
 ## Типы и их JSON
 

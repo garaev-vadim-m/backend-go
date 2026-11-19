@@ -21,6 +21,9 @@ mux.HandleFunc("GET /users", userHandler.GetAll)
 mux.HandleFunc("POST /user/create", userHandler.Create)
 mux.HandleFunc("DELETE /user/delete", userHandler.Delete)
 mux.HandleFunc("PUT /user/update", userHandler.Update)
+mux.HandleFunc("POST /user/register", userHandler.Register)
+mux.HandleFunc("POST /user/login", userHandler.Login)
+mux.HandleFunc("POST /user/logout", userHandler.Logout)
 ```
 
 Начиная с Go 1.22 метод пишется прямо в шаблоне: `"МЕТОД /путь"`.
@@ -118,7 +121,7 @@ corsMiddleware (заголовки + OPTIONS)
 w.Header().Set("Access-Control-Allow-Origin", origin)
 w.Header().Set("Vary", "Origin")
 w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Accept")
+w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Accept, Authorization")
 
 if r.Method == http.MethodOptions {
     w.WriteHeader(http.StatusNoContent) // preflight
@@ -128,7 +131,9 @@ if r.Method == http.MethodOptions {
 
 - `Access-Control-Allow-Origin` — с какого origin разрешены запросы;
 - `Access-Control-Allow-Methods` — какие методы разрешены;
-- `Access-Control-Allow-Headers` — какие заголовки можно присылать;
+- `Access-Control-Allow-Headers` — какие заголовки можно присылать; в проекте
+  дополнительно разрешён `Authorization` (токен сессии передаётся как
+  `Authorization: Bearer <token>`);
 - `Vary: Origin` — ответ зависит от заголовка `Origin` (нужно для кешей);
 - `OPTIONS` — preflight-запрос, браузер шлёт его перед `PUT`/`DELETE`.
 
@@ -136,11 +141,13 @@ if r.Method == http.MethodOptions {
 
 | Код | Когда                                   |
 |-----|-----------------------------------------|
-| 200 | успешный `GET` / `PUT`                  |
-| 201 | создание (`POST .../create`)            |
-| 204 | удаление (`DELETE`)                     |
-| 400 | битый JSON или отсутствует `id`/`name`  |
+| 200 | успешный `GET` / `PUT` и `/user/login`  |
+| 201 | создание (`POST .../create`, `/user/register`) |
+| 204 | удаление (`DELETE`), `/user/logout`     |
+| 400 | битый JSON, отсутствует `id`/`name`, слабый пароль |
+| 401 | неверные учётные данные или нет токена  |
 | 404 | сущность не найдена (`errs.ErrNotFound`)|
+| 409 | email уже зарегистрирован               |
 | 500 | внутренняя ошибка сервера               |
 
 ## Хелперы httpx
