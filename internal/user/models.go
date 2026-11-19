@@ -16,6 +16,7 @@ type User struct {
 	Female    *string                `json:"female"`
 	Email     *string                `json:"email"`
 	CreatedAt time.Time              `json:"created_at"`
+	UpdatedAt time.Time              `json:"updated_at"`
 	Password  *string                `json:"-"`
 	Status    *userstatus.UserStatus `json:"status"`
 	Rule      *rules.Rule            `json:"rule"`

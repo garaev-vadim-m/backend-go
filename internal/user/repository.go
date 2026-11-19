@@ -13,7 +13,7 @@ import (
 // константы, чтобы list/get/create/update не разъезжались по формату.
 // Алиас источника везде один и тот же — u (users, ins CTE или upd CTE).
 const userColumns = `
-	u.id, u.name, u.surname, u.female, u.email, u.created_at,
+	u.id, u.name, u.surname, u.female, u.email, u.created_at, u.updated_at,
 	us.id, us.name, us.code,
 	r.id, r.name, r.code`
 
@@ -44,6 +44,7 @@ func scanUser(s scanner) (*User, error) {
 		&u.Female,
 		&u.Email,
 		&u.CreatedAt,
+		&u.UpdatedAt,
 		&statusID,
 		&statusName,
 		&statusCode,
@@ -145,7 +146,7 @@ func CreateUser(db *sql.DB, name string, surname *string, female *string, email 
 	WITH ins AS (
 		INSERT INTO users (name, surname, female, email, password, status_id, rule_id)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
-		RETURNING id, name, surname, female, email, status_id, rule_id
+		RETURNING id, name, surname, female, email, created_at, updated_at, status_id, rule_id
 	)
 	SELECT` + userColumns + ` FROM ins u` + userJoins
 
@@ -161,9 +162,10 @@ func UpdateUser(db *sql.DB, id int, name string, surname *string, female *string
 	WITH upd AS (
 		UPDATE users
 		SET name = $1, surname = $2, female = $3, email = $4,
-			password = COALESCE(NULLIF($5, ''), password), status_id = $6, rule_id = $7
+    		password = COALESCE(NULLIF($5, ''), password),
+     		status_id = $6, rule_id = $7, updated_at = now()
 		WHERE id = $8
-		RETURNING id, name, surname, female, email, status_id, rule_id
+		RETURNING id, name, surname, female, email, created_at, updated_at, status_id, rule_id
 	)
 	SELECT` + userColumns + ` FROM upd u` + userJoins
 
