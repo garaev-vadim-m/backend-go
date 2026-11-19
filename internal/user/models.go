@@ -3,20 +3,22 @@ package user
 import (
 	"hello-go-backend/internal/rules"
 	userstatus "hello-go-backend/internal/user_status"
+	"time"
 )
 
 // User структура для представления пользователя в базе данных.
 // Статус и роль приходят уже развёрнутыми объектами (JOIN), поэтому
 // status_id/rule_id в ответе не дублируются — они нужны только на запись.
 type User struct {
-	ID       int                    `json:"id"`
-	Name     string                 `json:"name"`
-	Surname  *string                `json:"surname"`
-	Female   *string                `json:"female"`
-	Email    *string                `json:"email"`
-	Password *string                `json:"-"`
-	Status   *userstatus.UserStatus `json:"status"`
-	Rule     *rules.Rule            `json:"rule"`
+	ID        int                    `json:"id"`
+	Name      string                 `json:"name"`
+	Surname   *string                `json:"surname"`
+	Female    *string                `json:"female"`
+	Email     *string                `json:"email"`
+	CreatedAt time.Time              `json:"created_at"`
+	Password  *string                `json:"-"`
+	Status    *userstatus.UserStatus `json:"status"`
+	Rule      *rules.Rule            `json:"rule"`
 }
 
 // CreateUserRequest структура для парсинга JSON запроса.
