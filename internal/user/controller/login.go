@@ -56,5 +56,6 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httpx.WriteJSON(w, http.StatusOK, map[string]string{"token": token})
+	session.SetCookie(w, token, 24*time.Hour, h.cookieSecure)
+	httpx.WriteJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }

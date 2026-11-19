@@ -11,6 +11,7 @@ services:
       DB_USER: postgres
       DB_PASSWORD: postgres
       DB_NAME: myapp
+      COOKIE_SECURE: "false"
     depends_on:
       - postgres
 

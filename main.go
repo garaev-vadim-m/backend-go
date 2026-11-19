@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"os"
+	"strconv"
 
 	"hello-go-backend/internal/database"
 	controllerProduct "hello-go-backend/internal/product/controller"
@@ -37,6 +39,7 @@ func corsMiddleware(next http.Handler) http.Handler {
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Accept")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Accept, Authorization")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
 		w.Header().Set("Access-Control-Max-Age", "86400")
 
 		if r.Method == http.MethodOptions {
@@ -46,6 +49,18 @@ func corsMiddleware(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+func getenvBool(key string, def bool) bool {
+	v := os.Getenv(key)
+	if v == "" {
+		return def
+	}
+	b, err := strconv.ParseBool(v)
+	if err != nil {
+		return def
+	}
+	return b
 }
 
 func main() {
@@ -65,14 +80,15 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
-
+	cookieSecure := getenvBool("COOKIE_SECURE", false)
 	// Регистрируем обработчики
 	// Служебные
 	mux.HandleFunc("/", HomeHandler)
 	mux.HandleFunc("/health", HealthHandler)
 
 	//USERS
-	userHandler := controllerUser.NewHandler(database.DB)
+
+	userHandler := controllerUser.NewHandler(database.DB, cookieSecure)
 	mux.HandleFunc("GET /user", userHandler.Get)
 	mux.HandleFunc("GET /users", userHandler.GetAll)
 	mux.HandleFunc("POST /user/create", userHandler.Create)
