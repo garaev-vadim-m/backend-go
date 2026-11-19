@@ -49,7 +49,7 @@ E (корзина)**, затем F (качество и эксплуатация
 - [x] таблица `sessions` (id, user_id, token_hash, created_at, expires_at,
       revoked_at), хеш токена SHA-256, индекс по `user_id`
 - [x] TTL сессии при создании — 24 часа
-- [ ] `HttpOnly`, `SameSite`, `Secure` (в проде) — сейчас токен лежит в
+- [x] `HttpOnly`, `SameSite`, `Secure` (в проде) — сейчас токен лежит в
       `localStorage` и передаётся в заголовке `Authorization`
 - [ ] TTL сессии и продление, очистка просроченных/отозванных записей
 
