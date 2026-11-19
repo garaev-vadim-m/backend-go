@@ -4,6 +4,7 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
+	"hello-go-backend/internal/auth"
 	"hello-go-backend/internal/errs"
 	"hello-go-backend/internal/httpx"
 	"hello-go-backend/internal/session"
@@ -43,7 +44,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if subtle.ConstantTimeCompare([]byte(stored), []byte(req.Password)) != 1 {
+	if !auth.CheckPassword(stored, req.Password) && subtle.ConstantTimeCompare([]byte(stored), []byte(req.Password)) != 1 {
 		httpx.WriteError(w, http.StatusUnauthorized, errors.New("invalid credentials"))
 		return
 	}

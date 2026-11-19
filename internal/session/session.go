@@ -25,11 +25,11 @@ func Create(db *sql.DB, userID int, ttl time.Duration) (string, error) {
 	token := hex.EncodeToString(b)
 
 	_, err := db.Exec(
-		`INSERT INTO session (user_id, token_hash, expire_at) VALUES ($1 , $2, $3)`, userID, hashToken(token), time.Now().Add(ttl),
+		`INSERT INTO sessions (user_id, token_hash, expires_at) VALUES ($1, $2, $3)`, userID, hashToken(token), time.Now().Add(ttl),
 	)
 
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 
 	return token, nil
