@@ -28,6 +28,8 @@
                  │ password (bcrypt)│
                  │ status_id  FK   │
                  │ rule_id    FK   │
+                 │ created_at      │
+                 │ updated_at      │
                  └────────┬────────┘
                           │ user_id (ON DELETE CASCADE)
                           ▼
@@ -70,7 +72,7 @@
 | `status`      | `id` (PK), `name`, `code`                                        |
 | `rules`       | `id` (PK), `name`, `code`                                        |
 | `user_status` | `id` (PK), `name`, `code`                                        |
-| `users`       | `id` (PK), `name`, `surname` (nullable), `female` (nullable), `email` (nullable, UNIQUE), `password` (nullable, bcrypt), `status_id` (FK), `rule_id` (FK) |
+| `users`       | `id` (PK), `name`, `surname` (nullable), `female` (nullable), `email` (nullable, UNIQUE), `password` (nullable, bcrypt), `status_id` (FK), `rule_id` (FK), `created_at`, `updated_at` |
 | `products`    | `id` (PK), `name`, `description` (nullable), `status_id` (FK)    |
 | `sessions`    | `id` (PK), `user_id` (FK, NOT NULL), `token_hash` (UNIQUE), `created_at`, `expires_at`, `revoked_at` (nullable) |
 
@@ -78,6 +80,11 @@
 `female` — `VARCHAR(10)`, остальные строковые поля — `VARCHAR(255)`.
 `created_at` и `expires_at` в `sessions` — `TIMESTAMPTZ NOT NULL`
 (`created_at` по умолчанию `now()`), `revoked_at` — `TIMESTAMPTZ NULL`.
+
+`users.created_at` и `users.updated_at` тоже `TIMESTAMPTZ NOT NULL` со
+значением по умолчанию `now()` (миграции 000010 и 000011). При обновлении
+пользователя бэкенд явно выставляет `updated_at = now()`; в ответе оба поля
+приходят в формате RFC3339 и показываются в таблице пользователей панели.
 
 `users.email` формально nullable (PostgreSQL разрешает несколько `NULL`), но
 регистрация и сид админа всегда его заполняют; уникальность даёт ограничение
@@ -107,10 +114,12 @@
 | 000007 | `000007_create_sessions.up.sql`   | таблица `sessions`                      |
 | 000008 | `000008_add_revoked_at_sessions.up.sql` | `revoked_at` + индекс             |
 | 000009 | `000009_unique_users_email.up.sql`| уникальный `users.email`                |
+| 000010 | `000010_add_created_at_to_users.up.sql` | `users.created_at`             |
+| 000011 | `000011_add_updated_at_to_users.up.sql` | `users.updated_at`             |
 
 Порядок важен: сначала таблицы без зависимостей, потом `users`, `products` и
 `sessions`, которые ссылаются на них через `REFERENCES`. Для миграций
-000006–000009 есть `.down.sql`; у 000001–000005 down-файлов пока нет.
+000006–000011 есть `.down.sql`; у 000001–000005 down-файлов пока нет.
 
 Роли `admin`/`user` и технический пользователь создаются не миграцией, а
 `database.SeedAdmin()` при каждом старте приложения.
