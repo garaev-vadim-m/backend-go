@@ -40,7 +40,7 @@ E (корзина)**, затем F (качество и эксплуатация
 - [x] `POST /user/register` — регистрация (name, email, password), роль `user`
 - [x] `POST /user/login` — вход, ответ `{"token": "..."}`
 - [x] `POST /user/logout` — выход по `Authorization: Bearer <token>`
-- [ ] `GET /user/me` — текущий пользователь
+- [x] `GET /user/me` — текущий пользователь
 
 **Готово, когда:** можно зарегистрироваться, войти, получить `/user/me` и выйти.
 
