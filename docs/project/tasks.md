@@ -30,7 +30,7 @@
 
 ### A3. Эндпоинты
 
-- [ ] `POST /auth/register` — регистрация (email, password, name)
+- [x] `POST /auth/register` — регистрация (email, password, name)
 - [x] `POST /auth/login` — вход, выдача сессии/токена
 - [x] `POST /auth/logout`
 - [ ] `GET /auth/me` — текущий пользователь
@@ -47,7 +47,7 @@
 
 - [ ] `authMiddleware`: читает сессию, кладёт пользователя в `context.Context`
 - [ ] `currentUser(r)` helper
-- [ ] `401 Unauthorized` для защищённых маршрутов без сессии
+- [x] `401 Unauthorized` для защищённых маршрутов без сессии
 
 **Готово, когда:** защищённые ручки без входа дают `401`.
 
@@ -61,8 +61,8 @@
 
 ### B1. Роли
 
-- [ ] сидировать `rules`: `admin`, `user`
-- [ ] при регистрации назначать роль `user`
+- [x] сидировать `rules`: `admin`, `user`
+- [x] при регистрации назначать роль `user`
 - [ ] хранить роль в контексте запроса
 
 ### B2. Middleware прав
