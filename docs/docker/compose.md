@@ -104,5 +104,5 @@ healthcheck:
 ```bash
 docker compose up --build   # поднять всё
 docker compose logs -f app  # логи приложения
-docker compose down         # остановить и удалить контейнеры
+docker compose down -v       # остановить и удалить контейнеры
 ```
