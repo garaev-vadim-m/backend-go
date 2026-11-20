@@ -133,44 +133,46 @@ func main() {
 	userHandler := controllerUser.NewHandler(database.DB, cookieSecure)
 	mux.HandleFunc("GET /user", userHandler.Get)
 	mux.HandleFunc("GET /users", userHandler.GetAll)
-	mux.HandleFunc("POST /user/create", userHandler.Create)
-	mux.HandleFunc("DELETE /user/delete", userHandler.Delete)
-	mux.HandleFunc("PUT /user/update", userHandler.Update)
+	mux.Handle("POST /user/create", auth.Require(http.HandlerFunc(userHandler.Create)))
+	mux.Handle("DELETE /user/delete", auth.Require(http.HandlerFunc(userHandler.Delete)))
+	mux.Handle("PUT /user/update", auth.Require(http.HandlerFunc(userHandler.Update)))
+	// END USERS
+	//AUTH
 	mux.HandleFunc("POST /user/login", userHandler.Login)
 	mux.HandleFunc("POST /user/logout", userHandler.Logout)
 	mux.HandleFunc("POST /user/register", userHandler.Register)
 	mux.HandleFunc("GET /user/me", userHandler.Me)
-	// END USERS
+	//End AUTH
 	// STATUS
 	statusHandler := controllerStatus.NewHandler(database.DB)
 	mux.HandleFunc("GET /statuses", statusHandler.GetAll)
 	mux.HandleFunc("GET /status", statusHandler.Get)
-	mux.HandleFunc("POST /status/create", statusHandler.Create)
-	mux.HandleFunc("DELETE /status/delete", statusHandler.Delete)
-	mux.HandleFunc("PUT /status/update", statusHandler.Update)
+	mux.Handle("POST /status/create", auth.Require(http.HandlerFunc(statusHandler.Create)))
+	mux.Handle("DELETE /status/delete", auth.Require(http.HandlerFunc(statusHandler.Delete)))
+	mux.Handle("PUT /status/update", auth.Require(http.HandlerFunc(statusHandler.Update)))
 	// END STATUS
 	//RULES
 	rulesHandler := controllerRules.NewHandler(database.DB)
 	mux.HandleFunc("GET /rules", rulesHandler.GetAll)
 	mux.HandleFunc("GET /rule", rulesHandler.Get)
-	mux.HandleFunc("POST /rule/create", rulesHandler.Create)
-	mux.HandleFunc("DELETE /rule/delete", rulesHandler.Delete)
-	mux.HandleFunc("PUT /rule/update", rulesHandler.Update)
+	mux.Handle("POST /rule/create", auth.Require(http.HandlerFunc(rulesHandler.Create)))
+	mux.Handle("DELETE /rule/delete", auth.Require(http.HandlerFunc(rulesHandler.Delete)))
+	mux.Handle("PUT /rule/update", auth.Require(http.HandlerFunc(rulesHandler.Update)))
 	//END RULES
 	//USER STATUS
 	userStatusHandler := controllerUserStatus.NewHandler(database.DB)
 	mux.HandleFunc("GET /user-statuses", userStatusHandler.GetAll)
 	mux.HandleFunc("GET /user-status", userStatusHandler.Get)
-	mux.HandleFunc("POST /user-status/create", userStatusHandler.Create)
-	mux.HandleFunc("DELETE /user-status/delete", userStatusHandler.Delete)
-	mux.HandleFunc("PUT /user-status/update", userStatusHandler.Update)
+	mux.Handle("POST /user-status/create", auth.Require(http.HandlerFunc(userStatusHandler.Create)))
+	mux.Handle("DELETE /user-status/delete", auth.Require(http.HandlerFunc(userStatusHandler.Delete)))
+	mux.Handle("PUT /user-status/update", auth.Require(http.HandlerFunc(userStatusHandler.Update)))
 	//END USER STATUS
 	//PRODUCT
 	productHandler := controllerProduct.NewHandler(database.DB)
 	mux.HandleFunc("GET /products", productHandler.GetAll)
 	mux.HandleFunc("GET /product", productHandler.Get)
-	mux.HandleFunc("POST /product/create", productHandler.Create)
-	mux.HandleFunc("DELETE /product/delete", productHandler.Delete)
+	mux.Handle("POST /product/create", auth.Require(http.HandlerFunc(productHandler.Create)))
+	mux.Handle("DELETE /product/delete", auth.Require(http.HandlerFunc(productHandler.Delete)))
 	mux.Handle("PUT /product/update", auth.Require(http.HandlerFunc(productHandler.Update)))
 	//END PRODUCT
 
