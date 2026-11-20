@@ -64,7 +64,7 @@
     </div>
     <div class="field">
       <label for="regPassword">Пароль</label>
-      <input id="regPassword" name="password" type="password" autocomplete="new-password" minlength="8" required />
+      <input id="regPassword" name="password" type="password" autocomplete="new-password" minlength="8" maxlength="72" required />
     </div>
     <button type="submit">Зарегистрироваться</button>
   </form>
@@ -105,10 +105,8 @@
     if (btn) setMode(btn.dataset.mode);
   });
 
-  function authHeaders(token) {
-    const headers = { Accept: "application/json" };
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-    return headers;
+  function jsonHeaders() {
+    return { "Content-Type": "application/json", Accept: "application/json" };
   }
 
   async function readResponse(response) {
@@ -124,8 +122,11 @@
     return fallback;
   }
 
-  async function fetchUser(email, token) {
-    const response = await fetch(`${API_BASE}/users`, { headers: authHeaders(token) });
+  async function fetchUser(email) {
+    const response = await fetch(`${API_BASE}/users`, {
+      headers: { Accept: "application/json" },
+      credentials: "include",
+    });
     if (!response.ok) return null;
     const data = await response.json();
     if (!Array.isArray(data)) return null;
@@ -140,22 +141,22 @@
     registerForm.hidden = true;
     subtitle.textContent = "Сессия активна";
     logoutBtn.hidden = false;
-    setStatus(email ? `Токен сохранён для <${email}>.` : "Токен сохранён.", "ok");
+    setStatus(email ? `Сессия активна для <${email}>.` : "Сессия активна.", "ok");
   }
 
   async function doLogin(email, password) {
     const response = await fetch(`${API_BASE}/user/login`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      headers: jsonHeaders(),
+      credentials: "include",
       body: JSON.stringify({ email, password }),
     });
     const data = await readResponse(response);
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${responseMessage(data, "Не удалось войти")}`);
     }
-    const token = data && typeof data === "object" ? String(data.token || "") : "";
-    const user = (await fetchUser(email, token)) || { email };
-    const auth = { token, user, authenticatedAt: new Date().toISOString() };
+    const user = (await fetchUser(email)) || { email };
+    const auth = { user, authenticatedAt: new Date().toISOString() };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(auth));
     showSession(auth);
 
@@ -195,11 +196,17 @@
     const name = registerForm.elements.name.value.trim();
     const email = registerForm.elements.email.value.trim();
     const password = registerForm.elements.password.value;
+    const passwordBytes = new TextEncoder().encode(password).length;
+    if (passwordBytes < 8 || passwordBytes > 72) {
+      setStatus(`Пароль должен быть 8–72 байта (сейчас ${passwordBytes}).`, "err");
+      return;
+    }
     setStatus("Регистрация…");
     try {
       const response = await fetch(`${API_BASE}/user/register`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        headers: jsonHeaders(),
+        credentials: "include",
         body: JSON.stringify({ name, email, password }),
       });
       const data = await readResponse(response);
@@ -215,18 +222,18 @@
   });
 
   logoutBtn.addEventListener("click", async () => {
-    let auth = null;
-    try { auth = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null"); } catch {}
     let serverError = null;
-    if (auth?.token) {
-      try {
-        await fetch(`${API_BASE}/user/logout`, {
-          method: "POST",
-          headers: authHeaders(auth.token),
-        });
-      } catch (e) {
-        serverError = e.message;
+    try {
+      const response = await fetch(`${API_BASE}/user/logout`, {
+        method: "POST",
+        headers: { Accept: "application/json" },
+        credentials: "include",
+      });
+      if (!response.ok && response.status !== 401) {
+        serverError = `HTTP ${response.status}`;
       }
+    } catch (e) {
+      serverError = e.message;
     }
     localStorage.removeItem(STORAGE_KEY);
     logoutBtn.hidden = true;
@@ -234,7 +241,7 @@
     setMode("login");
     loginForm.reset();
     registerForm.reset();
-    setStatus(serverError ? `Токен удалён локально, но сервер не ответил: ${serverError}` : "Токен очищен.", serverError ? "err" : "");
+    setStatus(serverError ? `Локальная сессия очищена, но сервер не ответил: ${serverError}` : "Сессия завершена.", serverError ? "err" : "");
   });
 })();
 </script>
