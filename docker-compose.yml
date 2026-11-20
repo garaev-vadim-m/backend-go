@@ -12,6 +12,7 @@ services:
       DB_PASSWORD: postgres
       DB_NAME: myapp
       COOKIE_SECURE: "false"
+      CORS_ORIGINS: "http://localhost:5500"
     depends_on:
       - postgres
 

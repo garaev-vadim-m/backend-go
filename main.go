@@ -1,14 +1,19 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
+	"time"
 
 	"hello-go-backend/internal/database"
 	controllerProduct "hello-go-backend/internal/product/controller"
 	controllerRules "hello-go-backend/internal/rules/controller"
+	"hello-go-backend/internal/session"
 	controllerStatus "hello-go-backend/internal/status/controller"
 	controllerUser "hello-go-backend/internal/user/controller"
 	controllerUserStatus "hello-go-backend/internal/user_status/controller"
@@ -28,27 +33,34 @@ func HealthHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "OK")
 }
 
-func corsMiddleware(next http.Handler) http.Handler {
+func corsMiddleware(allowed map[string]bool, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
-		if origin == "" {
-			origin = "*"
+		if origin != "" && allowed[origin] {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
 		}
-		w.Header().Set("Access-Control-Allow-Origin", origin)
-		w.Header().Set("Vary", "Origin")
+		w.Header().Add("Vary", "Origin")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Accept")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Accept, Authorization")
-		w.Header().Set("Access-Control-Allow-Credentials", "true")
 		w.Header().Set("Access-Control-Max-Age", "86400")
 
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
-
 		next.ServeHTTP(w, r)
 	})
+}
+
+func parseOrigins(s string) map[string]bool {
+	m := map[string]bool{}
+	for _, o := range strings.Split(s, ",") {
+		if o = strings.TrimSpace(o); o != "" {
+			m[o] = true
+		}
+	}
+	return m
 }
 
 func getenvBool(key string, def bool) bool {
@@ -63,6 +75,23 @@ func getenvBool(key string, def bool) bool {
 	return b
 }
 
+func startSessionCleanup(db *sql.DB) {
+	go func() {
+		t := time.NewTicker(time.Hour)
+		defer t.Stop()
+		for range t.C {
+			n, err := session.Cleanup(db, 30*24*time.Hour)
+			if err != nil {
+				log.Printf("session cleanup: %v", err)
+				continue
+			}
+			if n > 0 {
+				log.Printf("session cleanup: removed %d", n)
+			}
+		}
+	}()
+}
+
 func main() {
 	// Инициализируем БД
 	if err := database.InitDB(); err != nil {
@@ -74,6 +103,8 @@ func main() {
 	if err := database.RunMigrations(); err != nil {
 		panic(err)
 	}
+
+	startSessionCleanup(database.DB)
 
 	if err := database.SeedAdmin(); err != nil {
 		panic(err)
@@ -132,7 +163,7 @@ func main() {
 	//END PRODUCT
 
 	fmt.Println("Server running on :8080")
-	if err := http.ListenAndServe(":8080", corsMiddleware(mux)); err != nil {
+	if err := http.ListenAndServe(":8080", corsMiddleware(parseOrigins(os.Getenv("CORS_ORIGINS")), mux)); err != nil {
 		panic(err)
 	}
 }

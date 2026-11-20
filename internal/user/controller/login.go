@@ -11,7 +11,6 @@ import (
 	"hello-go-backend/internal/user"
 	"log"
 	"net/http"
-	"time"
 )
 
 type loginRequest struct {
@@ -49,13 +48,13 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := session.Create(h.db, id, 24*time.Hour)
+	token, err := session.Create(h.db, id, session.SessionTTL)
 	if err != nil {
 		log.Printf("user login get: %v", err)
 		httpx.WriteError(w, http.StatusInternalServerError, errors.New("internal error"))
 		return
 	}
 
-	session.SetCookie(w, token, 24*time.Hour, h.cookieSecure)
+	session.SetCookie(w, token, session.SessionTTL, h.cookieSecure)
 	httpx.WriteJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }

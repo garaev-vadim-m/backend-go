@@ -10,6 +10,11 @@ import (
 	"time"
 )
 
+const (
+	SessionTTL  = 24 * time.Hour
+	RenewBefore = 12 * time.Hour
+)
+
 func hashToken(token string) string {
 	sum := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(sum[:])
@@ -65,4 +70,34 @@ func Revoke(db *sql.DB, token string) error {
 		hashToken(token),
 	)
 	return err
+}
+
+// Renew продлевает сессию, если до её конца осталось меньше RenewBefore.
+// Вызывается из middleware после Validate.
+func Renew(db *sql.DB, token string) error {
+	_, err := db.Exec(`
+		UPDATE sessions
+		SET expires_at = now() + make_interval(secs => $2)
+		WHERE token_hash = $1
+		  AND revoked_at IS NULL
+		  AND expires_at > now()
+		  AND expires_at < now() + make_interval(secs => $3)`,
+		hashToken(token), SessionTTL.Seconds(), RenewBefore.Seconds(),
+	)
+	return err
+}
+
+// Cleanup удаляет истекшие сессии без выхода, старше keepFor.
+// Отозванные (revoked_at) не трогаем: это история входов и выходов.
+func Cleanup(db *sql.DB, keepFor time.Duration) (int64, error) {
+	res, err := db.Exec(`
+		DELETE FROM sessions
+		WHERE revoked_at IS NULL
+		  AND expires_at < now() - make_interval(secs => $1)`,
+		keepFor.Seconds(),
+	)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
 }
