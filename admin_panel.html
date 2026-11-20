@@ -65,7 +65,7 @@
 </head>
 <body>
 <header>
-  <h1>hello-go-backend <small>· панель</small> <span id="roleLabel" class="admin-label" title="Роль из локальной сессии; сервер пока не проверяет права">admin</span></h1>
+  <h1>hello-go-backend <small>· панель</small> <span id="roleLabel" class="admin-label" title="Роль из /user/me; сервер пока не проверяет права на CRUD">admin</span></h1>
   <div class="field field-inline">
     <label for="base">API base URL</label>
     <input id="base" />
@@ -206,12 +206,17 @@
   const authLink = document.getElementById("authLink");
   const roleLabel = document.getElementById("roleLabel");
   let currentUser = null;
+  let canManageEntities = false;
+  const submitButtons = [];
   const logoutBtn = document.getElementById("logout");
-  try {
-    const auth = JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) || "null");
-    currentUser = auth?.user || null;
+
+  function applySession(user) {
+    currentUser = user || null;
+    const role = String(currentUser?.rule?.code || currentUser?.rule?.name || "").toLowerCase();
+    canManageEntities = role === "admin";
+
     if (currentUser) {
-      const identity = currentUser?.email || currentUser?.name || (currentUser ? `id=${currentUser.id}` : "пользователь");
+      const identity = currentUser.email || currentUser.name || `id=${currentUser.id}`;
       sessionBox.replaceChildren(document.createTextNode("Вошёл: "));
       const identityNode = document.createElement("strong");
       identityNode.textContent = identity;
@@ -219,19 +224,32 @@
       sessionBox.className = "session badge ok";
       authLink.hidden = true;
       logoutBtn.hidden = false;
+    } else {
+      sessionBox.textContent = "Сессия не сохранена";
+      sessionBox.className = "session";
+      authLink.hidden = false;
+      logoutBtn.hidden = true;
     }
-  } catch {
-    localStorage.removeItem(AUTH_STORAGE_KEY);
+
+    roleLabel.hidden = !role;
+    if (role) {
+      roleLabel.textContent = role;
+      roleLabel.classList.toggle("guest", !canManageEntities);
+    }
+
+    submitButtons.forEach((btn) => {
+      btn.disabled = !canManageEntities;
+      btn.title = canManageEntities ? "" : "Только пользователь с ролью admin может изменять данные";
+    });
   }
 
-  const role = String(currentUser?.rule?.code || currentUser?.rule?.name || "").toLowerCase();
-  const canManageEntities = role === "admin";
-
-  if (role) {
-    roleLabel.textContent = role;
-    roleLabel.classList.toggle("guest", !canManageEntities);
-  } else {
-    roleLabel.hidden = true;
+  async function loadSession() {
+    const { ok, data } = await api("GET", "/user/me");
+    if (!ok || !data || typeof data !== "object" || data.id === undefined) {
+      throw new Error("не удалось получить текущего пользователя");
+    }
+    applySession(data);
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ user: data }));
   }
 
   const apiBase = () => baseInput.value.trim().replace(/\/+$/, "");
@@ -358,10 +376,7 @@
     const detailIdInput = section.querySelector("[data-detail-id]");
     const detailResult = section.querySelector("[data-detail-result]");
 
-    if (!canManageEntities) {
-      submitBtn.disabled = true;
-      submitBtn.title = "Только пользователь с ролью admin может изменять данные";
-    }
+    submitButtons.push(submitBtn);
 
     if (detailIdInput) {
       const loadDetail = async () => {
@@ -586,7 +601,17 @@
     window.location.href = "auth.html";
   });
 
-  reloadAll();
+  applySession(null);
+
+  (async () => {
+    try {
+      await loadSession();
+    } catch (e) {
+      if (!authRedirecting) log(`Не удалось загрузить сессию: ${e.message}`, "err");
+    }
+    if (authRedirecting) return;
+    reloadAll();
+  })();
 })();
 </script>
 </body>

@@ -122,16 +122,14 @@
     return fallback;
   }
 
-  async function fetchUser(email) {
-    const response = await fetch(`${API_BASE}/users`, {
+  async function fetchMe() {
+    const response = await fetch(`${API_BASE}/user/me`, {
       headers: { Accept: "application/json" },
       credentials: "include",
     });
     if (!response.ok) return null;
     const data = await response.json();
-    if (!Array.isArray(data)) return null;
-    const normalized = email.toLowerCase();
-    return data.find((u) => String(u.email || "").toLowerCase() === normalized) || null;
+    return data && typeof data === "object" && data.id !== undefined ? data : null;
   }
 
   function showSession(auth) {
@@ -155,7 +153,10 @@
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${responseMessage(data, "Не удалось войти")}`);
     }
-    const user = (await fetchUser(email)) || { email };
+    const user = await fetchMe();
+    if (!user) {
+      throw new Error("Вход выполнен, но не удалось получить профиль пользователя");
+    }
     const auth = { user, authenticatedAt: new Date().toISOString() };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(auth));
     showSession(auth);
@@ -176,7 +177,23 @@
   } catch {
     localStorage.removeItem(STORAGE_KEY);
   }
-  if (cachedAuth) showSession(cachedAuth);
+
+  async function restoreSession() {
+    if (!cachedAuth) return;
+    setStatus("Проверка сессии…");
+    try {
+      const user = await fetchMe();
+      if (!user) throw new Error("сессия не активна");
+      const auth = { ...cachedAuth, user };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(auth));
+      showSession(auth);
+    } catch {
+      localStorage.removeItem(STORAGE_KEY);
+      setMode("login");
+      setStatus("Не удалось подтвердить сессию, выполните вход.", "err");
+    }
+  }
+  restoreSession();
 
   loginForm.addEventListener("submit", async (event) => {
     event.preventDefault();

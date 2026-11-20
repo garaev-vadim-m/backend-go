@@ -63,19 +63,43 @@
   const errorEl = document.getElementById("error");
 
   let currentUser = null;
-  try {
-    const auth = JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) || "null");
-    currentUser = auth?.user || null;
-  } catch {
-    localStorage.removeItem(AUTH_STORAGE_KEY);
-  }
 
-  if (currentUser) {
+  function renderSession() {
+    sessionEl.textContent = "";
+    authLink.textContent = "Войти";
+    adminLink.hidden = true;
+    if (!currentUser) return;
+
     const identity = currentUser.email || currentUser.name || `id=${currentUser.id}`;
     sessionEl.textContent = identity;
     authLink.textContent = "Сменить аккаунт";
     const role = String(currentUser.rule?.code || currentUser.rule?.name || "").toLowerCase();
     if (role === "admin") adminLink.hidden = false;
+  }
+
+  async function loadSession() {
+    try {
+      const response = await fetch(`${API_BASE}/user/me`, {
+        headers: { Accept: "application/json" },
+        credentials: "include",
+      });
+      if (!response.ok) {
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+        currentUser = null;
+        renderSession();
+        return;
+      }
+      const data = await response.json();
+      currentUser = data && typeof data === "object" ? data : null;
+      if (currentUser) {
+        let cached = null;
+        try { cached = JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) || "null"); } catch {}
+        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ ...cached, user: currentUser }));
+      }
+    } catch {
+      currentUser = null;
+    }
+    renderSession();
   }
 
   function card(product) {
@@ -142,6 +166,7 @@
   }
 
   document.getElementById("reload").addEventListener("click", load);
+  loadSession();
   load();
 })();
 </script>
