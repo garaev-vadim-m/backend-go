@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>hello-go-backend · магазин</title>
+<style>
+  :root{
+    --bg:#0f1216; --panel:#161a20; --panel2:#1d222a; --border:#2b313b;
+    --text:#e7eaee; --muted:#98a2b3; --accent:#4c8bf5; --ok:#3fb950;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  header{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:14px 18px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:5}
+  header h1{margin:0;font-size:16px;font-weight:600}
+  header h1 small{color:var(--muted);font-weight:400}
+  .grow{flex:1}
+  a,button{font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;text-decoration:none;cursor:pointer}
+  a:hover,button:hover{border-color:var(--accent);color:#fff}
+  .muted{color:var(--muted)}
+  .badge{font-size:12px;padding:2px 8px;border-radius:999px;border:1px solid var(--border);color:var(--muted)}
+  main{padding:18px}
+  .toolbar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:8px}
+  .card h3{margin:0;font-size:15px}
+  .card p{margin:0;color:var(--muted);font-size:13px;white-space:pre-wrap;word-break:break-word}
+  .card .meta{margin-top:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .status{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--ok);color:var(--ok)}
+  .empty{padding:30px;text-align:center;color:var(--muted);border:1px dashed var(--border);border-radius:10px}
+  #error{color:#e5534b}
+</style>
+</head>
+<body>
+<header>
+  <h1>hello-go-backend <small>· магазин</small></h1>
+  <span class="grow"></span>
+  <span id="session" class="muted"></span>
+  <a id="adminLink" href="admin_panel.html" hidden>Админ-панель</a>
+  <a id="authLink" href="auth.html">Войти</a>
+</header>
+<main>
+  <div class="toolbar">
+    <button id="reload">Обновить</button>
+    <span id="info" class="muted"></span>
+  </div>
+  <div id="error" class="muted"></div>
+  <div id="grid" class="grid"></div>
+</main>
+
+<script>
+(() => {
+  "use strict";
+
+  const storedBase = (localStorage.getItem("hello-go-backend.apiBase") || "").replace(/\/+$/, "");
+  const API_BASE = storedBase === "http://localhost:8080" ? "" : storedBase;
+  const AUTH_STORAGE_KEY = "hello-go-backend.auth";
+
+  const sessionEl = document.getElementById("session");
+  const authLink = document.getElementById("authLink");
+  const adminLink = document.getElementById("adminLink");
+  const grid = document.getElementById("grid");
+  const info = document.getElementById("info");
+  const errorEl = document.getElementById("error");
+
+  let currentUser = null;
+
+  function renderSession() {
+    sessionEl.textContent = "";
+    authLink.textContent = "Войти";
+    adminLink.hidden = true;
+    if (!currentUser) return;
+
+    const identity = currentUser.email || currentUser.name || `id=${currentUser.id}`;
+    sessionEl.textContent = identity;
+    authLink.textContent = "Сменить аккаунт";
+    const role = String(currentUser.rule?.code || currentUser.rule?.name || "").toLowerCase();
+    if (role === "admin") adminLink.hidden = false;
+  }
+
+  async function loadSession() {
+    try {
+      const response = await fetch(`${API_BASE}/user/me`, {
+        headers: { Accept: "application/json" },
+        credentials: "include",
+      });
+      if (!response.ok) {
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+        currentUser = null;
+        renderSession();
+        return;
+      }
+      const data = await response.json();
+      currentUser = data && typeof data === "object" ? data : null;
+      if (currentUser) {
+        let cached = null;
+        try { cached = JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) || "null"); } catch {}
+        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ ...cached, user: currentUser }));
+      }
+    } catch {
+      currentUser = null;
+    }
+    renderSession();
+  }
+
+  function card(product) {
+    const el = document.createElement("article");
+    el.className = "card";
+
+    const title = document.createElement("h3");
+    title.textContent = product.name || "Без названия";
+    el.appendChild(title);
+
+    if (product.description) {
+      const desc = document.createElement("p");
+      desc.textContent = product.description;
+      el.appendChild(desc);
+    }
+
+    const meta = document.createElement("div");
+    meta.className = "meta";
+    if (product.status && (product.status.name || product.status.code)) {
+      const st = document.createElement("span");
+      st.className = "status";
+      st.textContent = product.status.name || product.status.code;
+      meta.appendChild(st);
+    }
+    const id = document.createElement("span");
+    id.className = "badge";
+    id.textContent = `#${product.id}`;
+    meta.appendChild(id);
+    el.appendChild(meta);
+
+    return el;
+  }
+
+  async function load() {
+    grid.innerHTML = "";
+    errorEl.textContent = "";
+    info.textContent = "Загрузка…";
+    try {
+      const res = await fetch(`${API_BASE}/products`, {
+        headers: { Accept: "application/json" },
+        credentials: "include",
+      });
+      const text = await res.text();
+      let data = null;
+      try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+      if (!res.ok) {
+        const msg = typeof data === "string" ? data : (data?.error || JSON.stringify(data));
+        throw new Error(`HTTP ${res.status}${msg ? `: ${msg}` : ""}`);
+      }
+      const items = Array.isArray(data) ? data : [];
+      info.textContent = `Товаров: ${items.length}`;
+      if (!items.length) {
+        const empty = document.createElement("div");
+        empty.className = "empty";
+        empty.textContent = "Товаров пока нет.";
+        grid.appendChild(empty);
+        return;
+      }
+      for (const p of items) grid.appendChild(card(p));
+    } catch (e) {
+      info.textContent = "";
+      errorEl.textContent = `Не удалось загрузить товары: ${e.message}`;
+    }
+  }
+
+  document.getElementById("reload").addEventListener("click", load);
+  loadSession();
+  load();
+})();
+</script>
+</body>
+</html>

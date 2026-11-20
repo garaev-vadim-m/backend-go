@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>hello-go-backend — Авторизация</title>
+<style>
+  :root{
+    --bg:#0f1216; --panel:#161a20; --panel2:#1d222a; --border:#2b313b;
+    --text:#e7eaee; --muted:#98a2b3; --accent:#4c8bf5; --ok:#3fb950;
+    --danger:#e5534b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:grid;place-items:center;padding:18px;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  main{width:min(100%,380px);padding:24px;background:var(--panel);border:1px solid var(--border);border-radius:10px;box-shadow:0 16px 40px rgba(0,0,0,.22)}
+  h1{margin:0 0 4px;font-size:20px;font-weight:600}
+  .subtitle{margin:0 0 18px;color:var(--muted)}
+  .tabs{display:flex;gap:8px;margin-bottom:18px}
+  .tab{flex:1;height:34px;padding:0 10px;font:inherit;color:var(--muted);background:var(--panel2);border:1px solid var(--border);border-radius:6px;cursor:pointer}
+  .tab.active{color:#fff;background:var(--accent);border-color:var(--accent)}
+  .field{display:flex;flex-direction:column;gap:5px;margin-bottom:14px}
+  label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  input{width:100%;height:38px;padding:6px 10px;font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--border);border-radius:6px}
+  input:focus{outline:2px solid var(--accent);outline-offset:1px}
+  button[type="submit"]{width:100%;height:38px;padding:0 12px;font:inherit;color:#fff;background:var(--accent);border:1px solid var(--accent);border-radius:6px;cursor:pointer}
+  button:hover{filter:brightness(1.08)}
+  #logout{margin-top:10px;width:100%;height:38px;padding:0 12px;font:inherit;color:#fff;background:var(--accent);border:1px solid var(--accent);border-radius:6px;cursor:pointer}
+  .status{min-height:20px;margin-top:14px;color:var(--muted);font-size:12px}
+  .status.ok{color:var(--ok)}
+  .status.err{color:var(--danger)}
+  [hidden]{display:none !important}
+</style>
+</head>
+<body>
+<main>
+  <h1>hello-go-backend</h1>
+  <p class="subtitle" id="subtitle">Вход в аккаунт</p>
+
+  <div class="tabs" id="tabs">
+    <button type="button" class="tab active" data-mode="login">Вход</button>
+    <button type="button" class="tab" data-mode="register">Регистрация</button>
+  </div>
+
+  <form id="loginForm">
+    <div class="field">
+      <label for="loginEmail">Email</label>
+      <input id="loginEmail" name="email" type="email" autocomplete="username" required />
+    </div>
+    <div class="field">
+      <label for="loginPassword">Пароль</label>
+      <input id="loginPassword" name="password" type="password" autocomplete="current-password" required />
+    </div>
+    <button type="submit">Войти</button>
+  </form>
+
+  <form id="registerForm" hidden>
+    <div class="field">
+      <label for="regName">Имя</label>
+      <input id="regName" name="name" type="text" autocomplete="name" required />
+    </div>
+    <div class="field">
+      <label for="regEmail">Email</label>
+      <input id="regEmail" name="email" type="email" autocomplete="email" required />
+    </div>
+    <div class="field">
+      <label for="regPassword">Пароль</label>
+      <input id="regPassword" name="password" type="password" autocomplete="new-password" minlength="8" maxlength="72" required />
+    </div>
+    <button type="submit">Зарегистрироваться</button>
+  </form>
+
+  <button id="logout" type="button" hidden>Выйти</button>
+  <div id="status" class="status" aria-live="polite"></div>
+</main>
+
+<script>
+(() => {
+  "use strict";
+
+  const STORAGE_KEY = "hello-go-backend.auth";
+  const loginForm = document.getElementById("loginForm");
+  const registerForm = document.getElementById("registerForm");
+  const logoutBtn = document.getElementById("logout");
+  const status = document.getElementById("status");
+  const subtitle = document.getElementById("subtitle");
+  const tabs = document.getElementById("tabs");
+  const storedBase = (localStorage.getItem("hello-go-backend.apiBase") || "").replace(/\/+$/, "");
+  const API_BASE = storedBase === "http://localhost:8080" ? "" : storedBase;
+
+  function setStatus(text, type = "") {
+    status.className = "status" + (type ? " " + type : "");
+    status.textContent = text;
+  }
+
+  function setMode(mode) {
+    const isLogin = mode === "login";
+    loginForm.hidden = !isLogin;
+    registerForm.hidden = isLogin;
+    subtitle.textContent = isLogin ? "Вход в аккаунт" : "Регистрация";
+    tabs.querySelectorAll(".tab").forEach((b) => b.classList.toggle("active", b.dataset.mode === mode));
+    setStatus("");
+  }
+
+  tabs.addEventListener("click", (e) => {
+    const btn = e.target.closest(".tab");
+    if (btn) setMode(btn.dataset.mode);
+  });
+
+  function jsonHeaders() {
+    return { "Content-Type": "application/json", Accept: "application/json" };
+  }
+
+  async function readResponse(response) {
+    const text = await response.text();
+    let data = null;
+    try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+    return data;
+  }
+
+  function responseMessage(data, fallback) {
+    if (typeof data === "string" && data) return data;
+    if (data && typeof data === "object" && data.error) return data.error;
+    return fallback;
+  }
+
+  async function fetchMe() {
+    const response = await fetch(`${API_BASE}/user/me`, {
+      headers: { Accept: "application/json" },
+      credentials: "include",
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data && typeof data === "object" && data.id !== undefined ? data : null;
+  }
+
+  function showSession(auth) {
+    const email = auth?.user?.email || "";
+    tabs.hidden = true;
+    loginForm.hidden = true;
+    registerForm.hidden = true;
+    subtitle.textContent = "Сессия активна";
+    logoutBtn.hidden = false;
+    setStatus(email ? `Сессия активна для <${email}>.` : "Сессия активна.", "ok");
+  }
+
+  async function doLogin(email, password) {
+    const response = await fetch(`${API_BASE}/user/login`, {
+      method: "POST",
+      headers: jsonHeaders(),
+      credentials: "include",
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await readResponse(response);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${responseMessage(data, "Не удалось войти")}`);
+    }
+    const user = await fetchMe();
+    if (!user) {
+      throw new Error("Вход выполнен, но не удалось получить профиль пользователя");
+    }
+    const auth = { user, authenticatedAt: new Date().toISOString() };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(auth));
+    showSession(auth);
+
+    const role = String(user.rule?.code || user.rule?.name || "").toLowerCase();
+    const identity = user.email || email;
+    if (role === "admin") {
+      setStatus(`Вход выполнен как <${identity}>. Переход в админ-панель…`, "ok");
+      window.location.href = "admin_panel.html";
+    } else {
+      setStatus(`Вход выполнен как <${identity}>.`, "ok");
+    }
+  }
+
+  let cachedAuth = null;
+  try {
+    cachedAuth = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+  } catch {
+    localStorage.removeItem(STORAGE_KEY);
+  }
+
+  async function restoreSession() {
+    if (!cachedAuth) return;
+    setStatus("Проверка сессии…");
+    try {
+      const user = await fetchMe();
+      if (!user) throw new Error("сессия не активна");
+      const auth = { ...cachedAuth, user };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(auth));
+      showSession(auth);
+    } catch {
+      localStorage.removeItem(STORAGE_KEY);
+      setMode("login");
+      setStatus("Не удалось подтвердить сессию, выполните вход.", "err");
+    }
+  }
+  restoreSession();
+
+  loginForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const email = loginForm.elements.email.value.trim();
+    const password = loginForm.elements.password.value;
+    setStatus("Проверка данных…");
+    try {
+      await doLogin(email, password);
+      loginForm.elements.password.value = "";
+    } catch (error) {
+      setStatus(error.message, "err");
+    }
+  });
+
+  registerForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const name = registerForm.elements.name.value.trim();
+    const email = registerForm.elements.email.value.trim();
+    const password = registerForm.elements.password.value;
+    const passwordBytes = new TextEncoder().encode(password).length;
+    if (passwordBytes < 8 || passwordBytes > 72) {
+      setStatus(`Пароль должен быть 8–72 байта (сейчас ${passwordBytes}).`, "err");
+      return;
+    }
+    setStatus("Регистрация…");
+    try {
+      const response = await fetch(`${API_BASE}/user/register`, {
+        method: "POST",
+        headers: jsonHeaders(),
+        credentials: "include",
+        body: JSON.stringify({ name, email, password }),
+      });
+      const data = await readResponse(response);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${responseMessage(data, "Не удалось зарегистрироваться")}`);
+      }
+      setStatus("Регистрация успешна, выполняется вход…", "ok");
+      await doLogin(email, password);
+      registerForm.reset();
+    } catch (error) {
+      setStatus(error.message, "err");
+    }
+  });
+
+  logoutBtn.addEventListener("click", async () => {
+    let serverError = null;
+    try {
+      const response = await fetch(`${API_BASE}/user/logout`, {
+        method: "POST",
+        headers: { Accept: "application/json" },
+        credentials: "include",
+      });
+      if (!response.ok && response.status !== 401) {
+        serverError = `HTTP ${response.status}`;
+      }
+    } catch (e) {
+      serverError = e.message;
+    }
+    localStorage.removeItem(STORAGE_KEY);
+    logoutBtn.hidden = true;
+    tabs.hidden = false;
+    setMode("login");
+    loginForm.reset();
+    registerForm.reset();
+    setStatus(serverError ? `Локальная сессия очищена, но сервер не ответил: ${serverError}` : "Сессия завершена.", serverError ? "err" : "");
+  });
+})();
+</script>
+</body>
+</html>

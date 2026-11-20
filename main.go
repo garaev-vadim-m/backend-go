@@ -2,7 +2,9 @@ package main
 
 import (
 	"database/sql"
+	"embed"
 	"fmt"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -11,6 +13,7 @@ import (
 	"time"
 
 	"hello-go-backend/internal/database"
+	"hello-go-backend/internal/middleware"
 	controllerProduct "hello-go-backend/internal/product/controller"
 	controllerRules "hello-go-backend/internal/rules/controller"
 	"hello-go-backend/internal/session"
@@ -18,6 +21,9 @@ import (
 	controllerUser "hello-go-backend/internal/user/controller"
 	controllerUserStatus "hello-go-backend/internal/user_status/controller"
 )
+
+//go:embed web
+var webFS embed.FS
 
 func HomeHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Hello from Go Backend!")
@@ -110,15 +116,20 @@ func main() {
 		panic(err)
 	}
 
+	staticFS, err := fs.Sub(webFS, "web")
+	if err != nil {
+		panic(err)
+	}
+
 	mux := http.NewServeMux()
 	cookieSecure := getenvBool("COOKIE_SECURE", false)
 	// Регистрируем обработчики
 	// Служебные
-	mux.HandleFunc("/", HomeHandler)
+	mux.HandleFunc("/hello", HomeHandler)
 	mux.HandleFunc("/health", HealthHandler)
-
+	mux.Handle("/", http.FileServer(http.FS(staticFS)))
+	auth := middleware.NewAuth(database.DB, cookieSecure)
 	//USERS
-
 	userHandler := controllerUser.NewHandler(database.DB, cookieSecure)
 	mux.HandleFunc("GET /user", userHandler.Get)
 	mux.HandleFunc("GET /users", userHandler.GetAll)
@@ -160,7 +171,7 @@ func main() {
 	mux.HandleFunc("GET /product", productHandler.Get)
 	mux.HandleFunc("POST /product/create", productHandler.Create)
 	mux.HandleFunc("DELETE /product/delete", productHandler.Delete)
-	mux.HandleFunc("PUT /product/update", productHandler.Update)
+	mux.Handle("PUT /product/update", auth.Require(http.HandlerFunc(productHandler.Update)))
 	//END PRODUCT
 
 	fmt.Println("Server running on :8080")
