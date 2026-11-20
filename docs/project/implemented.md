@@ -14,6 +14,9 @@
 - [x] Dockerfile с multi-stage сборкой (builder → alpine)
 - [x] `docker-compose.yml`: app + `postgres:15-alpine`, healthcheck, named volume
 - [x] `.dockerignore`
+- [x] Статика (`web/*.html`) встроена в бинарник через `embed.FS` и раздаётся
+      тем же сервером: `/`, `/auth.html`, `/admin_panel.html`; приветствие
+      перенесено на `/hello` (`main.go`)
 - [x] Endpoint `/health` с ping БД
 - [x] CORS-middleware и preflight `OPTIONS` (`main.go`), заголовок
       `Authorization` разрешён; `Access-Control-Allow-Origin` отражает `Origin`
@@ -85,15 +88,18 @@
 
 ## Веб-страницы
 
-- [x] `index.html`: витрина товаров из `/products`, ссылка на админ-панель для
-      роли `admin`, индикатор сессии
-- [x] `auth.html`: вход и регистрация; серверная сессия живёт в `HttpOnly`-куке
-      `session`, в `localStorage` (`hello-go-backend.auth`) сохраняется только
-      профиль для UI, админ перенаправляется в `admin_panel.html`
-- [x] `admin_panel.html`: CRUD для `users`, `status`, `rules`, `user_status`,
+- [x] `web/index.html`: витрина товаров из `/products`, ссылка на админ-панель
+      для роли `admin`, индикатор сессии
+- [x] `web/auth.html`: вход и регистрация; серверная сессия живёт в
+      `HttpOnly`-куке `session`, в `localStorage` (`hello-go-backend.auth`)
+      сохраняется только профиль для UI, админ перенаправляется в
+      `/admin_panel.html`
+- [x] `web/admin_panel.html`: CRUD для `users`, `status`, `rules`, `user_status`,
       `products`, проверка `/health`, выход из сессии
-- [x] Настройка базового URL API (сохраняется в `localStorage`), запросы к API
-      отправляются с `credentials: "include"`; `Authorization` не используется
+- [x] Текущий пользователь и роль во всех страницах берутся из `GET /user/me`
+- [x] Базовый URL API по умолчанию пустой (текущий origin), явное значение
+      сохраняется в `localStorage`; запросы идут с `credentials: "include"`,
+      `Authorization` не используется
 - [x] Кнопки создания/изменения/удаления в панели доступны только роли `admin`
       (проверка только на клиенте; сервер её не применяет)
 - [x] Пароль в форме пользователей проверяется по правилам бэкенда: 8–72 байта

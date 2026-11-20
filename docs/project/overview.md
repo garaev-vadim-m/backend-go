@@ -4,11 +4,12 @@
 
 REST API на Go с PostgreSQL и тремя статическими страницами без сборки:
 витрина товаров (`index.html`), вход/регистрация (`auth.html`) и админ-панель
-(`admin_panel.html`). API реализует CRUD для пяти сущностей и аутентификацию
-на серверных сессиях.
+(`admin_panel.html`). Страницы встроены в бинарник через `go:embed web` и
+раздаются тем же сервером, что и API. API реализует CRUD для пяти сущностей
+и аутентификацию на серверных сессиях.
 
-- API: `http://localhost:8080`
-- Страницы: `index.html`, `auth.html`, `admin_panel.html` (корень проекта)
+- API и страницы: `http://localhost:8080`
+- Статика: `web/index.html`, `web/auth.html`, `web/admin_panel.html`
 - Документация: `docs/`
 
 > Сервер пока не проверяет токен на CRUD-роутах: права admin реализованы только
@@ -61,10 +62,11 @@ internal/
 
 ```
 backend-go/
-├─ main.go                 точка входа, маршруты, CORS
-├─ index.html              витрина товаров
-├─ auth.html               вход и регистрация
-├─ admin_panel.html        CRUD-панель (+ /health)
+├─ main.go                 точка входа, маршруты, CORS, раздача статики
+├─ web/                    статические страницы (go:embed)
+│  ├─ index.html           витрина товаров
+│  ├─ auth.html            вход и регистрация
+│  └─ admin_panel.html     CRUD-панель (+ /health)
 ├─ internal/
 │  ├─ auth/                bcrypt и валидация пароля
 │  ├─ database/            InitDB, CloseDB, RunMigrations, SeedAdmin, migrations/
@@ -106,11 +108,15 @@ backend-go/
 
 | Метод  | Путь                      | Описание                                    |
 |--------|---------------------------|---------------------------------------------|
-| GET    | `/`                       | приветствие                                 |
+| GET    | `/`                       | витрина (`web/index.html`)                  |
+| GET    | `/auth.html`              | вход/регистрация                            |
+| GET    | `/admin_panel.html`       | админ-панель                                |
+| GET    | `/hello`                  | приветствие (старый `/`)                    |
 | GET    | `/health`                 | ping БД                                     |
 | POST   | `/user/register`          | регистрация, роль `user`                    |
 | POST   | `/user/login`             | вход, ответ `{"ok": true}`, кука `session`  |
 | POST   | `/user/logout`            | выход по куке `session`                     |
+| GET    | `/user/me`                | текущий пользователь по куке `session`      |
 | GET    | `/users`                  | список пользователей                        |
 | GET    | `/user?id=`               | пользователь по id                          |
 | POST   | `/user/create`            | создать пользователя                        |
@@ -188,7 +194,7 @@ delete и logout, `400` — неверный JSON/`id`/обязательные 
 docker compose up --build
 ```
 
-Приложение: `http://localhost:8080`, PostgreSQL: `localhost:5432`, БД `myapp`.
+Приложение и страницы: `http://localhost:8080`, PostgreSQL: `localhost:5432`, БД `myapp`. Открывать HTML через `file://` не нужно — cookie-сессия и same-origin API-запросы работают только через HTTP.
 
 Локально без Docker:
 
