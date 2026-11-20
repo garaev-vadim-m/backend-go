@@ -38,8 +38,8 @@ E (корзина)**, затем F (качество и эксплуатация
 ### A3. Эндпоинты
 
 - [x] `POST /user/register` — регистрация (name, email, password), роль `user`
-- [x] `POST /user/login` — вход, ответ `{"token": "..."}`
-- [x] `POST /user/logout` — выход по `Authorization: Bearer <token>`
+- [x] `POST /user/login` — вход, ответ `{"ok": true}` и `HttpOnly`-кука `session`
+- [x] `POST /user/logout` — выход по куке `session`
 - [ ] `GET /user/me` — текущий пользователь
 
 **Готово, когда:** можно зарегистрироваться, войти, получить `/user/me` и выйти.
@@ -49,8 +49,8 @@ E (корзина)**, затем F (качество и эксплуатация
 - [x] таблица `sessions` (id, user_id, token_hash, created_at, expires_at,
       revoked_at), хеш токена SHA-256, индекс по `user_id`
 - [x] TTL сессии при создании — 24 часа
-- [x] `HttpOnly`, `SameSite`, `Secure` (в проде) — сейчас токен лежит в
-      `localStorage` и передаётся в заголовке `Authorization`
+- [x] `HttpOnly`, `SameSite`, `Secure` (в проде) — токен хранится в куке и
+      передаётся браузером автоматически; фронтенд использует `credentials: "include"`
 - [x] TTL сессии и продление, очистка просроченных/отозванных записей
 
 ### A5. Middleware

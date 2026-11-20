@@ -87,12 +87,13 @@
 
 - [x] `index.html`: витрина товаров из `/products`, ссылка на админ-панель для
       роли `admin`, индикатор сессии
-- [x] `auth.html`: вход и регистрация, сохранение `{token, user}` в
-      `localStorage` (`hello-go-backend.auth`), перенаправляет админа в `admin_panel.html`
+- [x] `auth.html`: вход и регистрация; серверная сессия живёт в `HttpOnly`-куке
+      `session`, в `localStorage` (`hello-go-backend.auth`) сохраняется только
+      профиль для UI, админ перенаправляется в `admin_panel.html`
 - [x] `admin_panel.html`: CRUD для `users`, `status`, `rules`, `user_status`,
       `products`, проверка `/health`, выход из сессии
-- [x] Настройка базового URL API (сохраняется в `localStorage`), заголовок
-      `Authorization: Bearer <token>` добавляется в запросы
+- [x] Настройка базового URL API (сохраняется в `localStorage`), запросы к API
+      отправляются с `credentials: "include"`; `Authorization` не используется
 - [x] Кнопки создания/изменения/удаления в панели доступны только роли `admin`
       (проверка только на клиенте; сервер её не применяет)
 - [x] Пароль в форме пользователей проверяется по правилам бэкенда: 8–72 байта

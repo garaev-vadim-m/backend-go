@@ -109,8 +109,8 @@ backend-go/
 | GET    | `/`                       | приветствие                                 |
 | GET    | `/health`                 | ping БД                                     |
 | POST   | `/user/register`          | регистрация, роль `user`                    |
-| POST   | `/user/login`             | вход, ответ `{"token": "..."}`              |
-| POST   | `/user/logout`            | выход, нужен `Authorization: Bearer <token>`|
+| POST   | `/user/login`             | вход, ответ `{"ok": true}`, кука `session`  |
+| POST   | `/user/logout`            | выход по куке `session`                     |
 | GET    | `/users`                  | список пользователей                        |
 | GET    | `/user?id=`               | пользователь по id                          |
 | POST   | `/user/create`            | создать пользователя                        |

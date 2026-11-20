@@ -63,11 +63,9 @@
   const errorEl = document.getElementById("error");
 
   let currentUser = null;
-  let authToken = null;
   try {
     const auth = JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) || "null");
     currentUser = auth?.user || null;
-    authToken = auth?.token || null;
   } catch {
     localStorage.removeItem(AUTH_STORAGE_KEY);
   }
@@ -116,9 +114,10 @@
     errorEl.textContent = "";
     info.textContent = "Загрузка…";
     try {
-      const headers = { Accept: "application/json" };
-      if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
-      const res = await fetch(`${API_BASE}/products`, { headers });
+      const res = await fetch(`${API_BASE}/products`, {
+        headers: { Accept: "application/json" },
+        credentials: "include",
+      });
       const text = await res.text();
       let data = null;
       try { data = text ? JSON.parse(text) : null; } catch { data = text; }
