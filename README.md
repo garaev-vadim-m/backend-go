@@ -47,6 +47,11 @@ docker compose exec postgres psql -U postgres -d myapp -c "\dt"
 go run .
 ```
 
+Создание миграции
+```bash
+./scripts/new-migration.sh add_something
+```
+
 ## Стек
 
 - Go 1.22
