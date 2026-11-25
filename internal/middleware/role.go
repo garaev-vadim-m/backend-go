@@ -30,6 +30,7 @@ func (a *Auth) RequireRole(code string, next http.Handler) http.Handler {
 
 		if role != code {
 			httpx.WriteError(w, http.StatusForbidden, errors.New("forbidden"))
+			return
 		}
 
 		next.ServeHTTP(w, r)
