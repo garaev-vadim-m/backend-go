@@ -65,7 +65,7 @@
 </head>
 <body>
 <header>
-  <h1>hello-go-backend <small>· панель</small> <span id="roleLabel" class="admin-label" title="Роль из /user/me; сервер пока не проверяет права на CRUD">admin</span></h1>
+  <h1>hello-go-backend <small>· панель</small> <span id="roleLabel" class="admin-label" title="Роль из /user/me; изменение данных требует роли admin">admin</span></h1>
   <div class="field field-inline">
     <label for="base" title="Пусто = текущий origin">API base URL</label>
     <input id="base" placeholder="текущий origin" />
@@ -298,9 +298,11 @@
     if (text) {
       try { data = JSON.parse(text); } catch { data = text; }
     }
-    if (res.status === 401 || res.status === 403) {
-      const message = typeof data === "string" ? data : data?.error;
+    const message = typeof data === "string" ? data : data?.error;
+    if (res.status === 401) {
       clearSession(`HTTP ${res.status}${message ? `: ${message}` : ""}: сессия сброшена`);
+    } else if (res.status === 403) {
+      log(`HTTP ${res.status}${message ? `: ${message}` : ""}: недостаточно прав`, "err");
     }
     return { ok: res.ok, status: res.status, data };
   }
