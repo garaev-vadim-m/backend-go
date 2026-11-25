@@ -93,8 +93,9 @@
 
 В `sessions` хранится не сам токен, а его SHA-256-хеш (64 hex-символа).
 Токен выдаётся клиенту при `/user/login` и живёт 24 часа; `revoked_at`
-используется для выхода. Индекс `sessions_user_id_idx` ускоряет поиск сессий
-пользователя.
+используется для выхода. Индексы `sessions_user_id_idx` и
+`sessions_expires_at_idx` ускоряют поиск сессий пользователя и очистку
+просроченных записей.
 
 ## Миграции
 
@@ -116,10 +117,11 @@
 | 000009 | `000009_unique_users_email.up.sql`| уникальный `users.email`                |
 | 000010 | `000010_add_created_at_to_users.up.sql` | `users.created_at`             |
 | 000011 | `000011_add_updated_at_to_users.up.sql` | `users.updated_at`             |
+| 000012 | `000012_add_expires_at_index_sessions.up.sql` | индекс по `sessions.expires_at` |
 
 Порядок важен: сначала таблицы без зависимостей, потом `users`, `products` и
 `sessions`, которые ссылаются на них через `REFERENCES`. Для миграций
-000006–000011 есть `.down.sql`; у 000001–000005 down-файлов пока нет.
+000006–000012 есть `.down.sql`; у 000001–000005 down-файлов пока нет.
 
 Роли `admin`/`user` и технический пользователь создаются не миграцией, а
 `database.SeedAdmin()` при каждом старте приложения.

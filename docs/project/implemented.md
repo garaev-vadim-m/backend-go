@@ -24,9 +24,9 @@
 ## Модель данных
 
 - [x] Таблицы: `users`, `user_status`, `rules`, `status`, `products`, `sessions`
-- [x] Миграции: 9 версий в `internal/database/migrations/` (создание таблиц,
+- [x] Миграции: 12 версий в `internal/database/migrations/` (создание таблиц,
       `users.password`, `sessions`, `sessions.revoked_at` + индекс,
-      уникальность `users.email`)
+      уникальность `users.email`, `created_at`/`updated_at`, индекс `expires_at`)
 - [x] Внешние ключи: `users.status_id`, `users.rule_id`, `products.status_id`,
       `sessions.user_id` (`ON DELETE CASCADE`)
 - [x] Nullable-поля: `users.surname`, `users.female`, `users.email`,
@@ -60,18 +60,24 @@
 - [x] Дублирующийся email даёт `409 Conflict` (`pq.Error` код `23505`)
 - [x] Сессия: случайный токен 32 байта (hex), в БД хранится только его
       SHA-256-хеш (`internal/session`)
-- [x] TTL сессии 24 часа; `Validate` учитывает `expires_at` и `revoked_at`
-      (пока не вызывается роутами)
+- [x] TTL сессии 24 часа; `Validate` учитывает `expires_at` и `revoked_at` и
+      вызывается в `/user/me` и в `middleware.Auth.Require`
+- [x] Продление сессии: `Renew` сдвигает `expires_at`, если до конца меньше 12 ч;
+      кука перевыпускается при куки-авторизации
 - [x] Logout отзывает сессию через `revoked_at`, строка остаётся в истории
 - [x] `errs.ErrUnauthorized` для невалидной сессии
-- [ ] `/auth/me`, `authMiddleware`, `requireRole("admin")` — см. `tasks.md`
+- [x] `GET /user/me`, `Auth.Require`, `Auth.RequireRole("admin")` —
+      защищённые роуты, id пользователя в `context.Context`
+- [x] Кука `session`: `HttpOnly`, `SameSite=Lax`, `Secure` при `COOKIE_SECURE=true`
 
 ## Паттерны и качество кода
 
 - [x] Единый пакет ошибок `internal/errs` с `ErrNotFound` и `ErrUnauthorized`
-- [x] Обёртка ошибок через `%w` и проверка `errors.Is`
+- [x] Обёртка ошибок через `%w` и проверка `errors.Is` (не везде: 4 репозитория
+      UPDATE не оборачивают `ErrNotFound`)
 - [x] HTTP/JSON-хелперы `internal/httpx`: `ParseID`, `WriteJSON`, `WriteError`
-- [x] Единый формат ошибки `{"error": "..."}`
+- [x] Формат ошибки `{"error": "..."}` (кроме текстовых `/health` и списков
+      при ошибке БД)
 - [x] Handler-структура с `*sql.DB` и конструктором `NewHandler`
 - [x] Общий `scanner`-интерфейс для `*sql.Row` и `*sql.Rows`
 - [x] JOIN статусов/ролей в выборках (развёрнутые объекты вместо `*_id`)
@@ -100,16 +106,17 @@
 - [x] Базовый URL API по умолчанию пустой (текущий origin), явное значение
       сохраняется в `localStorage`; запросы идут с `credentials: "include"`,
       `Authorization` не используется
-- [x] Кнопки создания/изменения/удаления в панели доступны только роли `admin`
-      (проверка только на клиенте; сервер её не применяет)
+- [x] Кнопки создания/изменения/удаления в панели доступны только роли `admin`;
+      сервер дублирует проверку через `Auth.RequireRole("admin")`
 - [x] Пароль в форме пользователей проверяется по правилам бэкенда: 8–72 байта
       (`minlength`/`maxlength` + проверка `TextEncoder` на отправке); пустой
       пароль при редактировании оставляет прежний
 - [x] Строковые поля ограничены длинами из схемы БД: 255 символов, `female` — 10
 - [x] Таблица пользователей показывает `created_at` / `updated_at` в локальном
       формате; карточкой по ID эти поля тоже видны в JSON
-- [x] При `401` / `403` общий обработчик `api()` очищает локальную сессию и
-      возвращает на `auth.html`; logout также идёт через этот обработчик
+- [x] При `401` обработчик `api()` очищает локальную сессию и возвращает на
+      `auth.html`; при `403` показывает ошибку прав без выхода; logout также
+      идёт через этот обработчик
 - [x] Заголовок панели показывает фактическую роль из сессии, а не всегда `admin`;
       атрибут `hidden` гарантированно скрывает элементы
 
@@ -123,11 +130,8 @@
 
 ## Чего пока нет
 
-- [ ] Ограничения прав по ролям на стороне сервера (проверка токена и `admin`
-      на CRUD-роутах)
-- [ ] Защищённых маршрутов `/auth/me`, middleware и хранения пользователя в
-      `context.Context`
-- [ ] TTL-продления сессии, cookie с `HttpOnly`/`SameSite`/`Secure`
+- [ ] Перевода всех пользователей с открытых паролей на bcrypt (fallback в
+      `login.go` ещё есть)
 - [ ] JWT и refresh-токенов
 - [ ] Корзины и Redis
 - [ ] Тестов (unit/integration)
@@ -135,3 +139,13 @@
 - [ ] OpenAPI/Swagger
 - [ ] Валидации внешних ключей (`status_id`, `rule_id`) с кодом 400/404
 - [ ] Graceful shutdown и структурированного логирования
+
+## Известные ограничения
+
+- [ ] `PUT` для несуществующего `product`/`status`/`rule`/`user_status`
+      возвращает `500` вместо `404`: репозитории не оборачивают `ErrNotFound`
+- [ ] Дублирующийся email в `/user/create` даёт `500`; `409` обрабатывается только
+      в `/user/register`
+- [ ] Списки при ошибке БД отдают текст `Error: ...`, а не `{"error": "..."}`
+- [ ] `/user/me` не принимает `Authorization: Bearer` и не продлевает сессию
+- [ ] `Secure` куки зависит от `COOKIE_SECURE` (по умолчанию `false`)
