@@ -30,7 +30,9 @@
       `users.password`, `sessions`, `sessions.revoked_at` + индекс,
       уникальность `users.email`, `created_at`/`updated_at`, индекс `expires_at`,
       `products.price`, корзина, `products.stock`, заказы)
-- [x] `products.price` (`NUMERIC(10,2)`, ≥ 0) и `products.stock` (`INTEGER`, ≥ 0)
+- [x] `products.price` (`NUMERIC(10,2)`, ≥ 0) и `products.stock` (`INTEGER`, ≥ 0):
+      есть в модели товара и принимаются в `/product/create` /
+      `/product/update`
 - [x] Внешние ключи: `users.status_id`, `users.rule_id`, `products.status_id`,
       `sessions.user_id` и `carts.user_id` (`ON DELETE CASCADE`),
       `cart_items.cart_id` / `cart_items.product_id` (`ON DELETE CASCADE`),
@@ -48,7 +50,8 @@
 - [x] Полный CRUD для `status` — `/statuses`, `/status`, `/status/{create,update,delete}`
 - [x] Полный CRUD для `rules` — `/rules`, `/rule`, `/rule/{create,update,delete}`
 - [x] Полный CRUD для `user_status` — `/user-statuses`, `/user-status`, `/user-status/{create,update,delete}`
-- [x] Полный CRUD для `products` — `/products`, `/product`, `/product/{create,update,delete}`
+- [x] Полный CRUD для `products` — `/products`, `/product`, `/product/{create,update,delete}`;
+      ответ содержит `price` (строка) и `stock`, create/update принимают оба поля
 - [x] `GET /cart` — просмотр корзины (только для авторизованных): объект
       `{"items":[{product_id,name,price,quantity,total}],"total"}`, цена и сумма
       приходят строками из PostgreSQL `NUMERIC`
@@ -112,6 +115,8 @@
 - [x] `sql.Null*` для nullable-полей из JOIN
 - [x] Проверка `id` в query (`httpx.ParseID`)
 - [x] Проверка обязательного `name` при создании/обновлении
+- [x] Проверка `price` (число с ≤ 2 знаками, максимум `99999999.99`) и
+      `stock` (≥ 0) в create/update товара — `400` при неверном значении
 - [x] Проверка пароля при создании/обновлении пользователя; пустой пароль
       при `PUT` оставляет старый (`COALESCE(NULLIF($5, ''), password)`)
 - [x] Проверка `RowsAffected` при удалении
@@ -131,6 +136,9 @@
 - [x] `web/admin_panel.html`: CRUD для `users`, `status`, `rules`, `user_status`,
       `products`, проверка `/health`, выход из сессии; для не-админа список users
       не загружается, а карточки пользователей заблокированы
+- [x] Форма и таблица товаров в админ-панели показывают `price` / `stock`;
+      поля редактируются, значение цены отправляется строкой и проверяется
+      по правилам бэкенда (до двух знаков, максимум `99999999.99`)
 - [x] Текущий пользователь и роль во всех страницах берутся из `GET /user/me`
 - [x] Базовый URL API по умолчанию пустой (текущий origin), явное значение
       сохраняется в `localStorage`; запросы идут с `credentials: "include"`,
@@ -158,11 +166,10 @@
       счётчик в шапке обновляется из `GET /cart`, есть переход на `cart.html`
 - [x] `web/cart.html`: базовый просмотр корзины — состав, цена, количество,
       сумма по позиции и итог; пустая корзина показывает отдельное сообщение
-- [ ] Цена и остаток не отображаются в карточках товара:
-      `internal/product/models.go` не отдаёт `price` / `stock` в `GET /products`
-      и `GET /product?id=`; в корзине цена берётся из `GET /cart`
-- [ ] В форме товаров админ-панели нет полей `price` / `stock`; через API их
-      тоже нельзя изменить, поэтому в БД остаётся значение по умолчанию (`0`)
+- [x] API товаров отдаёт `price` / `stock`, а админ-панель позволяет их
+      создавать и редактировать; корзина берёт цену из `GET /cart`
+- [ ] Карточки витрины `index.html` пока не показывают цену и остаток,
+      хотя поля уже приходят в `GET /products`
 - [ ] Нельзя изменить состав корзины: бэкенд пока не даёт `PUT /cart/items`,
       `DELETE /cart/items` и `DELETE /cart`
 - [ ] Нет кнопки оформления: `POST /order/checkout` с `Idempotency-Key`
@@ -186,8 +193,8 @@
 - [ ] JWT и refresh-токенов
 - [ ] Redis, анонимной корзины и merge при входе
 - [ ] Изменения/удаления позиций и очистки корзины (`PUT`/`DELETE /cart*`)
-- [ ] Кнопки оформления заказа в UI, а также `price` / `stock` в карточках
-      товаров и в админ-панели
+- [ ] Кнопки оформления заказа в UI и отображения `price` / `stock`
+      в карточках витрины
 - [ ] Чтения оформленного заказа по id/списком
 - [ ] Тестов (unit/integration)
 - [ ] Пагинации, фильтрации, сортировки
