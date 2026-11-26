@@ -181,6 +181,13 @@
         { name: "name", label: "name", type: "text", required: true, maxLength: 255 },
         { name: "description", label: "description", type: "text", maxLength: 255 },
         {
+          name: "price", label: "price", type: "number",
+          min: 0, step: "0.01", asString: true,
+          pattern: "\\d{1,8}(\\.\\d{1,2})?",
+          title: "0 — 99999999.99, до двух знаков после точки",
+        },
+        { name: "stock", label: "stock", type: "number", min: 0, step: "1" },
+        {
           name: "status_id",
           label: "status_id",
           type: "select",
@@ -192,7 +199,7 @@
         },
       ],
       // Как и у users: в ответе status_id нет, показываем name/code.
-      columns: ["id", "name", "description", "status"],
+      columns: ["id", "name", "description", "price", "stock", "status"],
       cell: (row, col) => {
         if (col === "status") return row.status ? `${row.status.name} (${row.status.code})` : "";
         return row[col];
@@ -327,7 +334,11 @@
     for (const f of entity.fields) {
       const raw = values[f.name];
       if (f.type === "number") {
-        body[f.name] = raw === "" || raw == null ? 0 : Number(raw);
+        if (f.asString) {
+          body[f.name] = raw === "" || raw == null ? "0.00" : String(raw);
+        } else {
+          body[f.name] = raw === "" || raw == null ? 0 : Number(raw);
+        }
       } else if (f.type === "select") {
         // Пустой выбор = статус/роль не назначены, ключ не шлём вообще,
         // чтобы бэкенд записал NULL, а не 0.
@@ -355,6 +366,11 @@
             f.required ? "required" : "",
             f.minLength ? `minlength="${f.minLength}"` : "",
             f.maxLength ? `maxlength="${f.maxLength}"` : "",
+            f.min !== undefined ? `min="${f.min}"` : "",
+            f.max !== undefined ? `max="${f.max}"` : "",
+            f.step ? `step="${f.step}"` : "",
+            f.pattern ? `pattern="${f.pattern}"` : "",
+            f.title ? `title="${f.title}"` : "",
           ].filter(Boolean).join(" ");
           return `
           <div class="field">
@@ -551,6 +567,16 @@
         if (bytes < 8 || bytes > 72) {
           log(`${entity.label}: пароль должен быть 8–72 байта (сейчас ${bytes})`, "err");
           passwordField.focus();
+          return;
+        }
+      }
+
+      for (const f of entity.fields) {
+        const input = form.elements[f.name];
+        if (!f.pattern || !input?.value) continue;
+        if (!new RegExp(`^(?:${f.pattern})$`).test(input.value)) {
+          log(`${entity.label}: ${f.label} ${f.title || "имеет неверный формат"}`, "err");
+          input.focus();
           return;
         }
       }
