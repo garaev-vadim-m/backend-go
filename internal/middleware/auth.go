@@ -19,6 +19,11 @@ type Auth struct {
 	cookieSecure bool
 }
 
+type Identity struct {
+	ID   int
+	Role string
+}
+
 func NewAuth(db *sql.DB, cookieSecure bool) *Auth {
 	return &Auth{db: db, cookieSecure: cookieSecure}
 }
@@ -32,7 +37,7 @@ func (a *Auth) Require(next http.Handler) http.Handler {
 			return
 		}
 
-		userID, err := session.Validate(a.db, token)
+		userID, role, err := session.Validate(a.db, token)
 
 		if errors.Is(err, errs.ErrUnauthorized) {
 			httpx.WriteError(w, http.StatusUnauthorized, errors.New("session expired"))
@@ -51,14 +56,15 @@ func (a *Auth) Require(next http.Handler) http.Handler {
 			session.SetCookie(w, token, session.SessionTTL, a.cookieSecure)
 		}
 
-		ctx := context.WithValue(r.Context(), ctxKey{}, userID)
+		ctx := context.WithValue(r.Context(), ctxKey{}, Identity{ID: userID, Role: role})
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
-func UserIDFromContext(ctx context.Context) (int, bool) {
-	id, ok := ctx.Value(ctxKey{}).(int)
-	return id, ok
+// IdentityFromContext достаёт текущего пользователя, положенного Require.
+func IdentityFromContext(ctx context.Context) (Identity, bool) {
+	me, ok := ctx.Value(ctxKey{}).(Identity)
+	return me, ok
 }
 
 func extractToken(r *http.Request) (string, bool) {

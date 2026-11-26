@@ -131,8 +131,9 @@ func main() {
 	auth := middleware.NewAuth(database.DB, cookieSecure)
 	//USERS
 	userHandler := controllerUser.NewHandler(database.DB, cookieSecure)
-	mux.HandleFunc("GET /user", userHandler.Get)
-	mux.HandleFunc("GET /users", userHandler.GetAll)
+	mux.Handle("GET /users", auth.RequireRole("admin", http.HandlerFunc(userHandler.GetAll)))
+	mux.Handle("GET /user", auth.Require(http.HandlerFunc(userHandler.Get)))
+	mux.Handle("GET /user/me", auth.Require(http.HandlerFunc(userHandler.Me)))
 	mux.Handle("POST /user/create", auth.RequireRole("admin", http.HandlerFunc(userHandler.Create)))
 	mux.Handle("DELETE /user/delete", auth.RequireRole("admin", http.HandlerFunc(userHandler.Delete)))
 	mux.Handle("PUT /user/update", auth.RequireRole("admin", http.HandlerFunc(userHandler.Update)))
@@ -141,7 +142,6 @@ func main() {
 	mux.HandleFunc("POST /user/login", userHandler.Login)
 	mux.HandleFunc("POST /user/logout", userHandler.Logout)
 	mux.HandleFunc("POST /user/register", userHandler.Register)
-	mux.HandleFunc("GET /user/me", userHandler.Me)
 	//End AUTH
 	// STATUS
 	statusHandler := controllerStatus.NewHandler(database.DB)

@@ -40,25 +40,28 @@ func Create(db *sql.DB, userID int, ttl time.Duration) (string, error) {
 	return token, nil
 }
 
-// Validate возвращает id пользователя, если сессия активна.
-// Этим будет пользоваться middleware.
-func Validate(db *sql.DB, token string) (int, error) {
+// Validate возвращает id и код роли пользователя, если сессия активна.
+func Validate(db *sql.DB, token string) (int, string, error) {
 	var userID int
+	var role string
 	err := db.QueryRow(`
-		SELECT user_id FROM sessions
-		WHERE token_hash = $1
-		  AND revoked_at IS NULL
-		  AND expires_at > now()`,
+		SELECT s.user_id, COALESCE(r.code, '')
+		FROM sessions s
+		JOIN users u ON u.id = s.user_id
+		LEFT JOIN rules r ON r.id = u.rule_id
+		WHERE s.token_hash = $1
+		  AND s.revoked_at IS NULL
+		  AND s.expires_at > now()`,
 		hashToken(token),
-	).Scan(&userID)
+	).Scan(&userID, &role)
 
 	if errors.Is(err, sql.ErrNoRows) {
-		return 0, errs.ErrUnauthorized
+		return 0, "", errs.ErrUnauthorized
 	}
 	if err != nil {
-		return 0, err
+		return 0, "", err
 	}
-	return userID, nil
+	return userID, role, nil
 }
 
 // Revoke помечает сессию завершённой. Строка остаётся для истории.
