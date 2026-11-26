@@ -20,6 +20,9 @@ import (
 	controllerStatus "hello-go-backend/internal/status/controller"
 	controllerUser "hello-go-backend/internal/user/controller"
 	controllerUserStatus "hello-go-backend/internal/user_status/controller"
+
+	controllerCart "hello-go-backend/internal/cart/controller"
+	controllerOrder "hello-go-backend/internal/order/controller"
 )
 
 //go:embed web
@@ -175,6 +178,14 @@ func main() {
 	mux.Handle("DELETE /product/delete", auth.RequireRole("admin", http.HandlerFunc(productHandler.Delete)))
 	mux.Handle("PUT /product/update", auth.RequireRole("admin", http.HandlerFunc(productHandler.Update)))
 	//END PRODUCT
+	//CART
+	cartHandler := controllerCart.NewHandler(database.DB)
+	mux.Handle("POST /cart/items", auth.Require(http.HandlerFunc(cartHandler.AddItem)))
+	//END CART
+	//ORDER
+	orderHandler := controllerOrder.NewHandler(database.DB)
+	mux.Handle("POST /order/checkout", auth.Require(http.HandlerFunc(orderHandler.Checkout)))
+	//END ORDER
 
 	fmt.Println("Server running on :8080")
 	if err := http.ListenAndServe(":8080", corsMiddleware(parseOrigins(os.Getenv("CORS_ORIGINS")), mux)); err != nil {
