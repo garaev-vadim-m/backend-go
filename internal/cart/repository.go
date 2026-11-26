@@ -22,23 +22,13 @@ func AddItem(db *sql.DB, userID, productID, qty int) error {
 	return err
 }
 
+// GetCart возвращает корзину одним запросом: позиции и итог из одного снимка.
+// Пустая корзина: items = [], total = "0.00".
 func GetCart(ctx context.Context, db *sql.DB, userID int) (*Cart, error) {
-	items, err := getItems(ctx, db, userID)
-	if err != nil {
-		return nil, err
-	}
-
-	total, err := getTotal(ctx, db, userID)
-	if err != nil {
-		return nil, err
-	}
-
-	return &Cart{Items: items, Total: total}, nil
-}
-
-func getItems(ctx context.Context, db *sql.DB, userID int) ([]Item, error) {
 	rows, err := db.QueryContext(ctx, `
-		SELECT p.id, p.name, p.price::text, ci.quantity, (ci.quantity * p.price)::text
+		SELECT p.id, p.name, p.price::text, ci.quantity,
+		       (ci.quantity * p.price)::text,
+		       (SUM(ci.quantity * p.price) OVER ())::text
 		FROM carts c
 		JOIN cart_items ci ON ci.cart_id = c.id
 		JOIN products p ON p.id = ci.product_id
@@ -49,30 +39,49 @@ func getItems(ctx context.Context, db *sql.DB, userID int) ([]Item, error) {
 	}
 	defer rows.Close()
 
-	items := []Item{}
+	cart := &Cart{Items: []Item{}, Total: "0.00"}
 
 	for rows.Next() {
 		var item Item
+		var total string
 
-		if err := rows.Scan(&item.ProductID, &item.Name, &item.Price, &item.Quantity, &item.Total); err != nil {
+		if err := rows.Scan(
+			&item.ProductID,
+			&item.Name,
+			&item.Price,
+			&item.Quantity,
+			&item.Total,
+			&total,
+		); err != nil {
 			return nil, err
 		}
 
-		items = append(items, item)
+		cart.Items = append(cart.Items, item)
+		cart.Total = total // одинаковое значение во всех строках, берём последнее
 	}
 
-	return items, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return cart, nil
 }
 
-func getTotal(ctx context.Context, db *sql.DB, userID int) (string, error) {
-	var total string
-
-	err := db.QueryRowContext(ctx, `
-		SELECT COALESCE(SUM(ci.quantity * p.price), 0)::text
-		FROM carts c
-		JOIN cart_items ci ON ci.cart_id = c.id
-		JOIN products p ON p.id = ci.product_id
-		WHERE c.user_id = $1`, userID).Scan(&total)
-
-	return total, err
+// RemoveItem удаляет товар из корзины пользователя.
+// Возвращает false, если такого товара в корзине не было.
+func RemoveItem(db *sql.DB, userID, productID int) (bool, error) {
+	res, err := db.Exec(`
+		DELETE FROM cart_items ci
+		USING carts c
+		WHERE ci.cart_id = c.id
+		  AND c.user_id = $1
+		  AND ci.product_id = $2`, userID, productID)
+	if err != nil {
+		return false, err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	return n > 0, nil
 }
