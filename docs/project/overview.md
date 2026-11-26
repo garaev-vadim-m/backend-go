@@ -2,14 +2,16 @@
 
 ## Что это
 
-REST API на Go с PostgreSQL и тремя статическими страницами без сборки:
-витрина товаров (`index.html`), вход/регистрация (`auth.html`) и админ-панель
-(`admin_panel.html`). Страницы встроены в бинарник через `go:embed web` и
+REST API на Go с PostgreSQL и четырьмя статическими страницами без сборки:
+витрина товаров (`index.html`), вход/регистрация (`auth.html`), корзина
+(`cart.html`) и админ-панель (`admin_panel.html`). Страницы встроены в бинарник
+через `go:embed web` и
 раздаются тем же сервером, что и API. API реализует CRUD для пяти сущностей,
 аутентификацию на серверных сессиях и базовые ручки корзины/заказов
-(`GET /cart`, `POST /cart/items`, `POST /order/checkout`). Витрина позволяет
-добавить товар в корзину и посмотреть её на отдельной странице; изменение
-состава и оформление заказа через UI пока не реализованы.
+(`GET /cart`, `POST /cart/items`, `DELETE /cart/items`, `POST /order/checkout`).
+Витрина позволяет добавить товар в корзину, посмотреть её на отдельной странице
+и удалить позицию; изменение количества, очистка корзины и оформление заказа
+через UI пока не реализованы.
 
 - API и страницы: `http://localhost:8080`
 - Статика: `web/index.html`, `web/auth.html`, `web/cart.html`, `web/admin_panel.html`
@@ -44,7 +46,7 @@ main.go
    └─ HomeHandler / HealthHandler
 
 internal/
-   ├─ httpx/                ParseID, WriteJSON, WriteError
+   ├─ httpx/                ParseID, ParseInt, WriteJSON, WriteError
    ├─ errs/                 ErrNotFound, ErrUnauthorized
    ├─ auth/                 HashPassword, CheckPassword, HashOptional, ValidatePassword
    ├─ middleware/           Auth.Require, Auth.RequireRole, IdentityFromContext
@@ -53,7 +55,7 @@ internal/
     │    ├─ database.go      подключение с retry
     │    ├─ migrations.go    golang-migrate + migrations/*.sql (15 версий)
     │    └─ seed.go          роли admin/user и технический пользователь
-    ├─ cart/                добавление товара в корзину
+     ├─ cart/                корзина: добавление, просмотр, удаление позиции
     ├─ order/               checkout: транзакция, остатки, идемпотентность
     └─ <entity>/
         ├─ models.go        структуры запроса/ответа
@@ -79,11 +81,11 @@ backend-go/
 ├─ web/                    статические страницы (go:embed)
 │  ├─ index.html           витрина товаров, кнопка «В корзину»
 │  ├─ auth.html            вход и регистрация
-│  ├─ cart.html            просмотр корзины
+│  ├─ cart.html            просмотр корзины, удаление позиции
 │  └─ admin_panel.html     CRUD-панель (+ /health)
 ├─ internal/
 │  ├─ auth/                bcrypt и валидация пароля
-│  ├─ cart/                корзина: AddItem
+│  ├─ cart/                корзина: AddItem, GetCart, RemoveItem
 │  ├─ database/            InitDB, CloseDB, RunMigrations, SeedAdmin, migrations/
 │  ├─ order/               оформление заказа: Checkout
 │  ├─ errs/                общие ошибки
@@ -166,14 +168,15 @@ backend-go/
 | DELETE | `/product/delete?id=`     | удалить товар                               |
 | GET    | `/cart`                   | текущая корзина (авторизованным)             |
 | POST   | `/cart/items`             | добавить товар в корзину (авторизованным)    |
+| DELETE | `/cart/items?product_id=` | удалить позицию из корзины (авторизованным)  |
 | POST   | `/order/checkout`         | оформить заказ, нужен `Idempotency-Key`      |
 
 Публичны `/products`, `/product?id=`, `/statuses`, `/status?id=`, `/rules`,
 `/rule?id=`, `/user-statuses`, `/user-status?id=`. `GET /users` требует роли
 `admin`; `GET /user?id=` и `GET /user/me` требуют авторизацию, при этом
 не-админ видит только себя. Создание/обновление/удаление любой сущности — только
-`admin`. `GET /cart`, `POST /cart/items` и `POST /order/checkout` требуют
-авторизацию.
+`admin`. `GET /cart`, `POST /cart/items`, `DELETE /cart/items` и
+`POST /order/checkout` требуют авторизацию.
 Токен берётся из куки `session` или заголовка
 `Authorization: Bearer <токен>`; `/user/logout` читает только куку.
 
@@ -184,7 +187,8 @@ delete и logout, `400` — неверный JSON/`id`/обязательные 
 зарегистрирован при register, `500` — внутренняя ошибка. `POST /order/checkout` отдаёт `201` при создании
 заказа и `200` при повторе с тем же `Idempotency-Key`; `400` — пустая корзина,
 `409` — товар закончился. `GET /cart` отдаёт `200` с полями `items` (пустой
-массив для пустой корзины) и `total`; `POST /cart/items` отвечает `200` без тела. Ошибки
+массив для пустой корзины) и `total`; `POST /cart/items` отвечает `200` без тела,
+`DELETE /cart/items` — `204` (`404`, если позиции нет). Ошибки
 отдаются в формате `{"error": "..."}` (кроме текстовых ответов `/health` и
 списков при ошибке БД).
 
@@ -207,8 +211,10 @@ delete и logout, `400` — неверный JSON/`id`/обязательные 
 В `web/index.html` у каждой карточки есть кнопка «В корзину» (`POST /cart/items`),
 а в шапке — переход на `web/cart.html`. Страница корзины получает `GET /cart`
 и показывает товары, цену, количество, сумму по позиции и итог;
-неавторизованный пользователь направляется на `auth.html`. Изменить количество или удалить товар
-пока нельзя: бэкенд не реализовал `PUT` / `DELETE` для корзины. Поля `price` /
+неавторизованный пользователь направляется на `auth.html`. Кнопка «Удалить»
+вызывает `DELETE /cart/items?product_id=`; изменить количество или очистить
+корзину пока нельзя: бэкенд не реализовал `PUT /cart/items` и `DELETE /cart`.
+Поля `price` /
 `stock` уже приходят в ответах `/products` и `/product?id=` и редактируются в
 админ-панели, но карточки витрины их пока не показывают; цена в корзине
 приходит из `GET /cart`. Оформление заказа в UI не подключено: для `POST /order/checkout` нужен заголовок

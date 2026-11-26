@@ -94,7 +94,8 @@ status (id, name, code) ─ products (id, name, description, status_id FK,
 транзакции, а `price` копируется в `order_items.price` — снимок цены на момент
 покупки. `orders.total` считается БД как `SUM(quantity * price)` по позициям
 заказа. `POST /cart/items` создаёт корзину при необходимости и увеличивает
-`quantity` для уже существующей позиции; `POST /order/checkout` очищает
+`quantity` для уже существующей позиции; `DELETE /cart/items?product_id=` удаляет
+одну позицию пользователя по `product_id`; `POST /order/checkout` очищает
 `cart_items`, но саму корзину оставляет.
 
 ## Миграции

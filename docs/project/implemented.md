@@ -57,6 +57,8 @@
       приходят строками из PostgreSQL `NUMERIC`
 - [x] `POST /cart/items` — добавить товар в корзину (только для авторизованных);
       повторное добавление увеличивает `quantity`
+- [x] `DELETE /cart/items?product_id=` — удалить позицию из корзины (только для
+      авторизованных); `204 No Content` при успехе, `404` если позиции нет
 - [x] `POST /order/checkout` — оформить заказ из корзины; обязателен заголовок
       `Idempotency-Key` (≤ 64 символов), ответ `Order{id,status,total,created_at}`
 - [x] Регистрация `POST /user/register`, вход `POST /user/login`,
@@ -66,7 +68,8 @@
 - [x] `GET` / `PUT` возвращают `200 OK`
 - [x] `DELETE` и logout возвращают `204 No Content`
 - [x] `GET /cart` возвращает `200 OK` даже для пустой корзины (`items: []`)
-- [x] `POST /cart/items` возвращает `200 OK` без тела; `POST /order/checkout` —
+- [x] `POST /cart/items` возвращает `200 OK` без тела; `DELETE /cart/items` —
+      `204 No Content` (`404`, если позиции нет); `POST /order/checkout` —
       `201 Created` при новом заказе и `200 OK` при повторе с тем же ключом
 - [x] `401` при неверных учётных данных и при logout без токена
 
@@ -89,8 +92,9 @@
 - [x] `errs.ErrUnauthorized` для невалидной сессии
 - [x] `GET /user/me`, `Auth.Require`, `Auth.RequireRole("admin")` —
       защищённые роуты, в контексте `Identity{ID, Role}`
-- [x] `POST /cart/items` и `POST /order/checkout` тоже защищены `Auth.Require`;
-      `user_id` берётся из контекста, а не из тела запроса
+- [x] `GET /cart`, `POST /cart/items`, `DELETE /cart/items` и
+      `POST /order/checkout` защищены `Auth.Require`; `user_id` берётся из
+      контекста, а не из тела запроса
 - [x] `GET /users` — только `admin`; `GET /user?id=` — авторизованным, не-админ
       видит только свою карточку (чужая отдаётся как `404`)
 - [x] Кука `session`: `HttpOnly`, `SameSite=Lax`, `Secure` при `COOKIE_SECURE=true`
@@ -100,7 +104,8 @@
 - [x] Единый пакет ошибок `internal/errs` с `ErrNotFound` и `ErrUnauthorized`
 - [x] Обёртка ошибок через `%w` и проверка `errors.Is` (не везде: 4 репозитория
       UPDATE не оборачивают `ErrNotFound`)
-- [x] HTTP/JSON-хелперы `internal/httpx`: `ParseID`, `WriteJSON`, `WriteError`
+- [x] HTTP/JSON-хелперы `internal/httpx`: `ParseID`, `ParseInt`, `WriteJSON`,
+      `WriteError`
 - [x] Формат ошибки `{"error": "..."}` (кроме текстовых `/health` и списков
       при ошибке БД)
 - [x] Checkout использует транзакцию, `SELECT ... FOR UPDATE` для строк корзины,
@@ -113,7 +118,8 @@
       в ответ; `updated_at` пересчитывается в `UPDATE`
 - [x] `INSERT` / `UPDATE` через CTE + `RETURNING` + `JOIN`
 - [x] `sql.Null*` для nullable-полей из JOIN
-- [x] Проверка `id` в query (`httpx.ParseID`)
+- [x] Проверка `id` в query (`httpx.ParseID`) и `product_id` в
+      `DELETE /cart/items` (`httpx.ParseInt`)
 - [x] Проверка обязательного `name` при создании/обновлении
 - [x] Проверка `price` (число с ≤ 2 знаками, максимум `99999999.99`) и
       `stock` (≥ 0) в create/update товара — `400` при неверном значении
@@ -128,7 +134,8 @@
       ссылка на `cart.html` со счётчиком товаров, ссылка на админ-панель для
       роли `admin`, индикатор сессии
 - [x] `web/cart.html`: просмотр корзины из `GET /cart` — товары, цена, количество,
-      сумма по позиции и итог; пустая корзина и `401` → `auth.html`
+      сумма по позиции и итог; кнопка «Удалить» вызывает `DELETE /cart/items`;
+      пустая корзина и `401` → `auth.html`
 - [x] `web/auth.html`: вход и регистрация; серверная сессия живёт в
       `HttpOnly`-куке `session`, в `localStorage` (`hello-go-backend.auth`)
       сохраняется только профиль для UI, админ перенаправляется в
@@ -166,17 +173,20 @@
       счётчик в шапке обновляется из `GET /cart`, есть переход на `cart.html`
 - [x] `web/cart.html`: базовый просмотр корзины — состав, цена, количество,
       сумма по позиции и итог; пустая корзина показывает отдельное сообщение
+- [x] `web/cart.html`: удаление позиции через кнопку «Удалить» и
+      `DELETE /cart/items?product_id=`, список перезагружается после ответа `204`
 - [x] API товаров отдаёт `price` / `stock`, а админ-панель позволяет их
       создавать и редактировать; корзина берёт цену из `GET /cart`
 - [ ] Карточки витрины `index.html` пока не показывают цену и остаток,
       хотя поля уже приходят в `GET /products`
-- [ ] Нельзя изменить состав корзины: бэкенд пока не даёт `PUT /cart/items`,
-      `DELETE /cart/items` и `DELETE /cart`
+- [ ] Нельзя изменить количество и очистить корзину: бэкенд пока не даёт
+      `PUT /cart/items` и `DELETE /cart`
 - [ ] Нет кнопки оформления: `POST /order/checkout` с `Idempotency-Key`
       не вызывается, а `api()` в админ-панели не принимает свои заголовки
 
-Итог: добавление и просмотр корзины готовы; изменение корзины и checkout
-в UI ещё не реализованы. Оставшиеся пункты — в `tasks.md` (E2/E3/E6).
+Итог: добавление, просмотр и удаление позиций корзины готовы; изменение
+количества, очистка корзины и checkout в UI ещё не реализованы. Оставшиеся
+пункты — в `tasks.md` (E2/E3/E6).
 
 ## Документация
 
@@ -192,7 +202,7 @@
       `login.go` ещё есть)
 - [ ] JWT и refresh-токенов
 - [ ] Redis, анонимной корзины и merge при входе
-- [ ] Изменения/удаления позиций и очистки корзины (`PUT`/`DELETE /cart*`)
+- [ ] Изменения количества и очистки корзины (`PUT /cart/items`, `DELETE /cart`)
 - [ ] Кнопки оформления заказа в UI и отображения `price` / `stock`
       в карточках витрины
 - [ ] Чтения оформленного заказа по id/списком
@@ -212,8 +222,9 @@
 - [ ] `Secure` куки зависит от `COOKIE_SECURE` (по умолчанию `false`)
 - [ ] Корзина и checkout доступны только авторизованным; анонимная корзина
       не реализована
-- [ ] `GET /cart` показывает состав, но не даёт изменить количество или удалить
-      позицию — для этого нет `PUT` / `DELETE`
+- [ ] `GET /cart` показывает состав и позволяет удалить позицию через
+      `DELETE /cart/items`, но не даёт изменить количество или очистить корзину —
+      для этого нет `PUT /cart/items` и `DELETE /cart`
 - [ ] `POST /order/checkout` требует `Idempotency-Key`; без него — `400`
 - [ ] При нехватке остатка checkout отдаёт `409` с текстом
       `product N: out of stock`, остальные ошибки БД — `500`
