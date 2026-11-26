@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>hello-go-backend · корзина</title>
+<style>
+  :root{
+    --bg:#0f1216; --panel:#161a20; --panel2:#1d222a; --border:#2b313b;
+    --text:#e7eaee; --muted:#98a2b3; --accent:#4c8bf5; --ok:#3fb950;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  header{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:14px 18px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:5}
+  header h1{margin:0;font-size:16px;font-weight:600}
+  header h1 small{color:var(--muted);font-weight:400}
+  .grow{flex:1}
+  a,button{font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;text-decoration:none;cursor:pointer}
+  a:hover,button:hover{border-color:var(--accent);color:#fff}
+  .muted{color:var(--muted)}
+  main{padding:18px;max-width:900px;margin:0 auto}
+  .toolbar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+  table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+  th,td{padding:10px 12px;border-bottom:1px solid var(--border);text-align:left}
+  th{color:var(--muted);font-weight:500;font-size:12px;text-transform:uppercase}
+  td.num{text-align:right}
+  tr:last-child td{border-bottom:0}
+  .total{text-align:right;font-size:16px;font-weight:600;padding:14px 12px}
+  .empty{padding:30px;text-align:center;color:var(--muted);border:1px dashed var(--border);border-radius:10px}
+  #error{color:#e5534b}
+</style>
+</head>
+<body>
+<header>
+  <h1>hello-go-backend <small>· корзина</small></h1>
+  <span class="grow"></span>
+  <span id="session" class="muted"></span>
+  <a href="index.html">Магазин</a>
+  <a id="adminLink" href="admin_panel.html" hidden>Админ-панель</a>
+  <a id="authLink" href="auth.html">Войти</a>
+</header>
+<main>
+  <div class="toolbar">
+    <button id="reload">Обновить</button>
+    <a href="index.html">К товарам</a>
+  </div>
+  <div id="error" class="muted"></div>
+  <div id="cart"></div>
+</main>
+
+<script>
+(() => {
+  "use strict";
+
+  const storedBase = (localStorage.getItem("hello-go-backend.apiBase") || "").replace(/\/+$/, "");
+  const API_BASE = storedBase === "http://localhost:8080" ? "" : storedBase;
+  const AUTH_STORAGE_KEY = "hello-go-backend.auth";
+
+  const sessionEl = document.getElementById("session");
+  const authLink = document.getElementById("authLink");
+  const adminLink = document.getElementById("adminLink");
+  const cartEl = document.getElementById("cart");
+  const errorEl = document.getElementById("error");
+
+  function renderSession() {
+    sessionEl.textContent = "";
+    authLink.textContent = "Войти";
+    adminLink.hidden = true;
+    let user = null;
+    try { user = JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) || "null")?.user; } catch {}
+    if (!user) return;
+
+    const identity = user.email || user.name || `id=${user.id}`;
+    sessionEl.textContent = identity;
+    authLink.textContent = "Сменить аккаунт";
+    const role = String(user.rule?.code || user.rule?.name || "").toLowerCase();
+    if (role === "admin") adminLink.hidden = false;
+  }
+
+  async function api(path) {
+    const res = await fetch(`${API_BASE}${path}`, {
+      headers: { Accept: "application/json" },
+      credentials: "include",
+    });
+    if (res.status === 401) {
+      window.location.assign("auth.html");
+      throw new Error("Требуется вход");
+    }
+    const text = await res.text();
+    let data = null;
+    try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+    if (!res.ok) {
+      const msg = typeof data === "string" ? data : (data?.error || JSON.stringify(data));
+      throw new Error(`HTTP ${res.status}${msg ? `: ${msg}` : ""}`);
+    }
+    return data;
+  }
+
+  function cell(text, className) {
+    const td = document.createElement("td");
+    td.textContent = text == null ? "" : String(text);
+    if (className) td.className = className;
+    return td;
+  }
+
+  function renderCart(data) {
+    cartEl.replaceChildren();
+    const items = Array.isArray(data?.items) ? data.items : [];
+
+    if (!items.length) {
+      const empty = document.createElement("div");
+      empty.className = "empty";
+      empty.textContent = "Корзина пуста.";
+      cartEl.appendChild(empty);
+      return;
+    }
+
+    const table = document.createElement("table");
+    const head = document.createElement("thead");
+    const headRow = document.createElement("tr");
+    for (const title of ["Товар", "Цена", "Кол-во", "Сумма"]) {
+      const th = document.createElement("th");
+      th.textContent = title;
+      headRow.appendChild(th);
+    }
+    head.appendChild(headRow);
+    table.appendChild(head);
+
+    const body = document.createElement("tbody");
+    for (const item of items) {
+      const row = document.createElement("tr");
+      const name = cell(`${item.name || "Без названия"} (#${item.product_id})`);
+      row.appendChild(name);
+      row.appendChild(cell(item.price, "num"));
+      row.appendChild(cell(item.quantity, "num"));
+      row.appendChild(cell(item.total, "num"));
+      body.appendChild(row);
+    }
+
+    const totalRow = document.createElement("tr");
+    const label = cell("Итого");
+    label.colSpan = 3;
+    totalRow.appendChild(label);
+    totalRow.appendChild(cell(data.total, "num total"));
+    body.appendChild(totalRow);
+
+    table.appendChild(body);
+    cartEl.appendChild(table);
+  }
+
+  async function loadCart() {
+    errorEl.textContent = "";
+    cartEl.textContent = "Загрузка…";
+    try {
+      renderCart(await api("/cart"));
+    } catch (e) {
+      cartEl.textContent = "";
+      if (e.message !== "Требуется вход") errorEl.textContent = `Не удалось загрузить корзину: ${e.message}`;
+    }
+  }
+
+  document.getElementById("reload").addEventListener("click", loadCart);
+  renderSession();
+  loadCart();
+})();
+</script>
+</body>
+</html>

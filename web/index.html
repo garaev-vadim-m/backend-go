@@ -26,6 +26,7 @@
   .card h3{margin:0;font-size:15px}
   .card p{margin:0;color:var(--muted);font-size:13px;white-space:pre-wrap;word-break:break-word}
   .card .meta{margin-top:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .card .actions{display:flex;gap:8px;margin-top:4px}
   .status{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--ok);color:var(--ok)}
   .empty{padding:30px;text-align:center;color:var(--muted);border:1px dashed var(--border);border-radius:10px}
   #error{color:#e5534b}
@@ -36,6 +37,7 @@
   <h1>hello-go-backend <small>· магазин</small></h1>
   <span class="grow"></span>
   <span id="session" class="muted"></span>
+  <a id="cartLink" href="cart.html">Корзина <span id="cartCount" class="badge" hidden>0</span></a>
   <a id="adminLink" href="admin_panel.html" hidden>Админ-панель</a>
   <a id="authLink" href="auth.html">Войти</a>
 </header>
@@ -59,6 +61,7 @@
   const sessionEl = document.getElementById("session");
   const authLink = document.getElementById("authLink");
   const adminLink = document.getElementById("adminLink");
+  const cartCount = document.getElementById("cartCount");
   const grid = document.getElementById("grid");
   const info = document.getElementById("info");
   const errorEl = document.getElementById("error");
@@ -101,6 +104,64 @@
       currentUser = null;
     }
     renderSession();
+    await loadCartCount();
+  }
+
+  async function api(path, options = {}) {
+    const res = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      credentials: "include",
+      headers: { Accept: "application/json", ...(options.headers || {}) },
+    });
+    const text = await res.text();
+    let data = null;
+    try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+    if (!res.ok) {
+      const msg = typeof data === "string" ? data : (data?.error || JSON.stringify(data));
+      const err = new Error(`HTTP ${res.status}${msg ? `: ${msg}` : ""}`);
+      err.status = res.status;
+      throw err;
+    }
+    return data;
+  }
+
+  async function loadCartCount() {
+    if (!currentUser) {
+      cartCount.hidden = true;
+      return;
+    }
+    try {
+      const data = await api("/cart");
+      const items = Array.isArray(data?.items) ? data.items : [];
+      const count = items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+      cartCount.textContent = String(count);
+      cartCount.hidden = count === 0;
+    } catch (e) {
+      cartCount.hidden = true;
+      if (e.status === 401) window.location.assign("auth.html");
+    }
+  }
+
+  async function addToCart(product, button) {
+    errorEl.textContent = "";
+    if (!currentUser) {
+      window.location.assign("auth.html");
+      return;
+    }
+    button.disabled = true;
+    try {
+      await api("/cart/items", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ product_id: product.id, quantity: 1 }),
+      });
+      await loadCartCount();
+    } catch (e) {
+      errorEl.textContent = `Не удалось добавить товар в корзину: ${e.message}`;
+      if (e.status === 401) window.location.assign("auth.html");
+    } finally {
+      button.disabled = false;
+    }
   }
 
   function card(product) {
@@ -131,6 +192,15 @@
     meta.appendChild(id);
     el.appendChild(meta);
 
+    const actions = document.createElement("div");
+    actions.className = "actions";
+    const addButton = document.createElement("button");
+    addButton.type = "button";
+    addButton.textContent = "В корзину";
+    addButton.addEventListener("click", () => addToCart(product, addButton));
+    actions.appendChild(addButton);
+    el.appendChild(actions);
+
     return el;
   }
 
@@ -139,17 +209,7 @@
     errorEl.textContent = "";
     info.textContent = "Загрузка…";
     try {
-      const res = await fetch(`${API_BASE}/products`, {
-        headers: { Accept: "application/json" },
-        credentials: "include",
-      });
-      const text = await res.text();
-      let data = null;
-      try { data = text ? JSON.parse(text) : null; } catch { data = text; }
-      if (!res.ok) {
-        const msg = typeof data === "string" ? data : (data?.error || JSON.stringify(data));
-        throw new Error(`HTTP ${res.status}${msg ? `: ${msg}` : ""}`);
-      }
+      const data = await api("/products");
       const items = Array.isArray(data) ? data : [];
       info.textContent = `Товаров: ${items.length}`;
       if (!items.length) {
