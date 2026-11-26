@@ -16,7 +16,7 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	c, err := cart.Get(r.Context(), h.db, me.ID)
+	c, err := cart.GetCart(r.Context(), h.db, me.ID)
 	if err != nil {
 		log.Printf("cart get: %v", err)
 		httpx.WriteError(w, http.StatusInternalServerError, errors.New("internal error"))
