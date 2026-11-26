@@ -7,3 +7,8 @@ import "errors"
 var ErrNotFound = errors.New("not found")
 
 var ErrUnauthorized = errors.New("unauthorized")
+
+var (
+	ErrOutOfStock = errors.New("out of stock")
+	ErrEmptyCart  = errors.New("cart is empty")
+)
