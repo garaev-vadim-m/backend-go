@@ -2,56 +2,33 @@
 
 ## ERD
 
-Визуальная схема базовых таблиц лежит в `docs/ERD.png`. Актуальный источник
-истины по колонкам и типам — SQL-файлы в `internal/database/migrations/`.
-Текстовый вариант:
+Визуальная схема базовых таблиц лежит в `docs/ERD.png` (картинка не включает
+корзину и заказы). Актуальный источник истины по колонкам и типам — SQL-файлы
+в `internal/database/migrations/`. Текстовый вариант:
 
 ```
- ┌─────────────────┐              ┌─────────────────┐
- │   user_status   │              │      rules      │
- ├─────────────────┤              ├─────────────────┤
- │ id  PK          │              │ id  PK          │
- │ name            │              │ name            │
- │ code            │              │ code            │
- └────────┬────────┘              └────────┬────────┘
-          │ status_id                      │ rule_id
-          └───────────────┬────────────────┘
-                          ▼
-                 ┌─────────────────┐
-                 │      users      │
-                 ├─────────────────┤
-                 │ id  PK          │
-                 │ name            │
-                 │ surname  (null) │
-                 │ female   (null) │
-                 │ email    (UQ)   │
-                 │ password (bcrypt)│
-                 │ status_id  FK   │
-                 │ rule_id    FK   │
-                 │ created_at      │
-                 │ updated_at      │
-                 └────────┬────────┘
-                          │ user_id (ON DELETE CASCADE)
-                          ▼
-                 ┌─────────────────┐
-                 │     sessions    │
-                 ├─────────────────┤
-                 │ id  PK          │
-                 │ user_id   FK    │
-                 │ token_hash UQ   │
-                 │ created_at      │
-                 │ expires_at      │
-                 │ revoked_at      │
-                 └─────────────────┘
+user_status (id, name, code) ─┐
+                              ├─ users (id, name, email, password,
+rules       (id, name, code) ─┘         status_id FK, rule_id FK,
+                                        created_at, updated_at)
+                                          ├─ sessions (id, user_id FK,
+                                          │   token_hash UQ, created_at,
+                                          │   expires_at, revoked_at)
+                                          ├─ carts (id, user_id FK/UQ,
+                                          │   created_at, updated_at)
+                                          │    └─ cart_items (cart_id FK,
+                                          │         product_id FK, quantity)
+                                          └─ orders (id, user_id FK, status,
+                                              total, idempotency_key UQ
+                                              по паре с user_id, created_at)
+                                               └─ order_items (order_id FK,
+                                                    product_id FK, quantity,
+                                                    price — снимок цены)
 
- ┌─────────────────┐              ┌─────────────────┐
- │      status     │              │     products    │
- ├─────────────────┤              ├─────────────────┤
- │ id  PK          │◄─────────────┤ id  PK          │
- │ name            │ status_id FK │ name            │
- │ code            │              │ description     │
- └─────────────────┘              │ status_id  FK   │
-                                  └─────────────────┘
+status (id, name, code) ─ products (id, name, description, status_id FK,
+                                    price >= 0, stock >= 0)
+                              ├─ cart_items.product_id FK
+                              └─ order_items.product_id FK
 ```
 
 ## Связи
@@ -62,6 +39,17 @@
 | `users`        | `rule_id`   | `rules`       | по умолчанию (`NO ACTION`) |
 | `products`     | `status_id` | `status`      | по умолчанию (`NO ACTION`) |
 | `sessions`     | `user_id`   | `users`       | `ON DELETE CASCADE`        |
+| `carts`        | `user_id`   | `users`       | `ON DELETE CASCADE`, `UNIQUE` |
+| `cart_items`   | `cart_id`   | `carts`       | `ON DELETE CASCADE`        |
+| `cart_items`   | `product_id`| `products`    | `ON DELETE CASCADE`        |
+| `orders`       | `user_id`   | `users`       | по умолчанию (`NO ACTION`) |
+| `order_items`  | `order_id`  | `orders`      | `ON DELETE CASCADE`        |
+| `order_items`  | `product_id`| `products`    | по умолчанию (`NO ACTION`) |
+
+`cart_items` имеет первичный ключ `(cart_id, product_id)`:
+повторное добавление товара увеличивает `quantity`. `orders` имеет уникальную
+пару `(user_id, idempotency_key)` — повторный checkout с тем же ключом возвращает
+уже существующий заказ вместо создания нового.
 
 Обратите внимание: у пользователя статус берётся из `user_status`, а у продукта — из `status`.
 
@@ -73,8 +61,12 @@
 | `rules`       | `id` (PK), `name`, `code`                                        |
 | `user_status` | `id` (PK), `name`, `code`                                        |
 | `users`       | `id` (PK), `name`, `surname` (nullable), `female` (nullable), `email` (nullable, UNIQUE), `password` (nullable, bcrypt), `status_id` (FK), `rule_id` (FK), `created_at`, `updated_at` |
-| `products`    | `id` (PK), `name`, `description` (nullable), `status_id` (FK)    |
+| `products`    | `id` (PK), `name`, `description` (nullable), `status_id` (FK), `price` (NUMERIC(10,2), ≥ 0), `stock` (INTEGER, ≥ 0) |
 | `sessions`    | `id` (PK), `user_id` (FK, NOT NULL), `token_hash` (UNIQUE), `created_at`, `expires_at`, `revoked_at` (nullable) |
+| `carts`       | `id` (PK), `user_id` (FK, UNIQUE), `created_at`, `updated_at` |
+| `cart_items`  | `cart_id` (PK/FK), `product_id` (PK/FK), `quantity` (> 0)        |
+| `orders`      | `id` (PK), `user_id` (FK), `status`, `total` (NUMERIC(10,2)), `idempotency_key` (VARCHAR(64), UNIQUE с `user_id`), `created_at` |
+| `order_items` | `order_id` (PK/FK), `product_id` (PK/FK), `quantity` (> 0), `price` (NUMERIC(10,2), снимок) |
 
 `id` — `SERIAL PRIMARY KEY`, то есть автоинкремент. `name` и `code` — `VARCHAR(255) NOT NULL`.
 `female` — `VARCHAR(10)`, остальные строковые поля — `VARCHAR(255)`.
@@ -97,6 +89,14 @@
 `sessions_expires_at_idx` ускоряют поиск сессий пользователя и очистку
 просроченных записей.
 
+`products.price` и `products.stock` добавляются миграциями 000013 и 000015
+со значением по умолчанию `0`. При оформлении заказа `stock` списывается в той же
+транзакции, а `price` копируется в `order_items.price` — снимок цены на момент
+покупки. `orders.total` считается БД как `SUM(quantity * price)` по позициям
+заказа. `POST /cart/items` создаёт корзину при необходимости и увеличивает
+`quantity` для уже существующей позиции; `POST /order/checkout` очищает
+`cart_items`, но саму корзину оставляет.
+
 ## Миграции
 
 Миграции применяются при старте `database.RunMigrations()` через
@@ -118,10 +118,14 @@
 | 000010 | `000010_add_created_at_to_users.up.sql` | `users.created_at`             |
 | 000011 | `000011_add_updated_at_to_users.up.sql` | `users.updated_at`             |
 | 000012 | `000012_add_expires_at_index_sessions.up.sql` | индекс по `sessions.expires_at` |
+| 000013 | `000013_add_price_to_products.up.sql`   | `products.price`                        |
+| 000014 | `000014_create_carts.up.sql`            | `carts`, `cart_items`                   |
+| 000015 | `000015_create_orders.up.sql`           | `products.stock`, `orders`, `order_items` |
 
 Порядок важен: сначала таблицы без зависимостей, потом `users`, `products` и
-`sessions`, которые ссылаются на них через `REFERENCES`. Для миграций
-000006–000012 есть `.down.sql`; у 000001–000005 down-файлов пока нет.
+`sessions`, которые ссылаются на них через `REFERENCES`; затем цена товаров,
+корзина и заказы. Для миграций 000006–000015 есть `.down.sql`; у 000001–000005
+down-файлов пока нет.
 
 Роли `admin`/`user` и технический пользователь создаются не миграцией, а
 `database.SeedAdmin()` при каждом старте приложения.
@@ -136,6 +140,8 @@
 | `users`        | `internal/user`            |
 | `products`     | `internal/product`         |
 | `sessions`     | `internal/session`         |
+| `carts`        | `internal/cart`            |
+| `orders`       | `internal/order`           |
 | Пароли         | `internal/auth`            |
 | Миграции, сид  | `internal/database`        |
 
@@ -149,4 +155,5 @@
 - [x] таблицы-справочники создаются раньше зависимых
 - [x] связи описаны через `REFERENCES`
 - [x] nullable-колонки в Go представлены указателями или `sql.Null*`
-- [x] текстовое описание соответствует SQL-миграциям
+- [x] текстовое описание соответствует SQL-миграциям 000001–000015
+- [ ] `docs/ERD.png` обновить под корзину и заказы (сейчас только базовые таблицы)

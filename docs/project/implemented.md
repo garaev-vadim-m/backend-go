@@ -7,28 +7,35 @@
 - [x] Go-модуль `hello-go-backend`, Go 1.22
 - [x] Подключение к PostgreSQL через `database/sql` + `lib/pq`
 - [x] Retry подключения: 5 попыток с паузой 2 с (`internal/database/database.go`)
-- [x] Миграции через `golang-migrate` v4: SQL-файлы встроены в бинарник через
-      `embed.FS` и применяются при старте (`internal/database/migrations.go`)
+- [x] Миграции через `golang-migrate` v4: 15 версий, SQL-файлы встроены в
+      бинарник через `embed.FS` и применяются при старте
+      (`internal/database/migrations.go`)
 - [x] Сидирование при старте: роли `admin`/`user` и технический пользователь
       с bcrypt-паролем (`internal/database/seed.go`, env `ADMIN_*`)
 - [x] Dockerfile с multi-stage сборкой (builder → alpine)
 - [x] `docker-compose.yml`: app + `postgres:15-alpine`, healthcheck, named volume
 - [x] `.dockerignore`
 - [x] Статика (`web/*.html`) встроена в бинарник через `embed.FS` и раздаётся
-      тем же сервером: `/`, `/auth.html`, `/admin_panel.html`; приветствие
-      перенесено на `/hello` (`main.go`)
+      тем же сервером: `/`, `/auth.html`, `/cart.html`, `/admin_panel.html`;
+      приветствие перенесено на `/hello` (`main.go`)
 - [x] Endpoint `/health` с ping БД
 - [x] CORS-middleware и preflight `OPTIONS` (`main.go`), заголовок
       `Authorization` разрешён; `Access-Control-Allow-Origin` отражает `Origin`
 
 ## Модель данных
 
-- [x] Таблицы: `users`, `user_status`, `rules`, `status`, `products`, `sessions`
-- [x] Миграции: 12 версий в `internal/database/migrations/` (создание таблиц,
+- [x] Таблицы: `users`, `user_status`, `rules`, `status`, `products`, `sessions`,
+      `carts`, `cart_items`, `orders`, `order_items`
+- [x] Миграции: 15 версий в `internal/database/migrations/` (создание таблиц,
       `users.password`, `sessions`, `sessions.revoked_at` + индекс,
-      уникальность `users.email`, `created_at`/`updated_at`, индекс `expires_at`)
+      уникальность `users.email`, `created_at`/`updated_at`, индекс `expires_at`,
+      `products.price`, корзина, `products.stock`, заказы)
+- [x] `products.price` (`NUMERIC(10,2)`, ≥ 0) и `products.stock` (`INTEGER`, ≥ 0)
 - [x] Внешние ключи: `users.status_id`, `users.rule_id`, `products.status_id`,
-      `sessions.user_id` (`ON DELETE CASCADE`)
+      `sessions.user_id` и `carts.user_id` (`ON DELETE CASCADE`),
+      `cart_items.cart_id` / `cart_items.product_id` (`ON DELETE CASCADE`),
+      `orders.user_id`, `order_items.order_id` (`ON DELETE CASCADE`) и
+      `order_items.product_id`
 - [x] Nullable-поля: `users.surname`, `users.female`, `users.email`,
       `users.password`, `users.status_id`, `users.rule_id`,
       `products.description`, `products.status_id`, `sessions.revoked_at`
@@ -42,12 +49,22 @@
 - [x] Полный CRUD для `rules` — `/rules`, `/rule`, `/rule/{create,update,delete}`
 - [x] Полный CRUD для `user_status` — `/user-statuses`, `/user-status`, `/user-status/{create,update,delete}`
 - [x] Полный CRUD для `products` — `/products`, `/product`, `/product/{create,update,delete}`
+- [x] `GET /cart` — просмотр корзины (только для авторизованных): объект
+      `{"items":[{product_id,name,price,quantity,total}],"total"}`, цена и сумма
+      приходят строками из PostgreSQL `NUMERIC`
+- [x] `POST /cart/items` — добавить товар в корзину (только для авторизованных);
+      повторное добавление увеличивает `quantity`
+- [x] `POST /order/checkout` — оформить заказ из корзины; обязателен заголовок
+      `Idempotency-Key` (≤ 64 символов), ответ `Order{id,status,total,created_at}`
 - [x] Регистрация `POST /user/register`, вход `POST /user/login`,
       выход `POST /user/logout`
 - [x] Роутинг с методами Go 1.22 (`"GET /user"`)
 - [x] `POST .../create` и register возвращают `201 Created`
 - [x] `GET` / `PUT` возвращают `200 OK`
 - [x] `DELETE` и logout возвращают `204 No Content`
+- [x] `GET /cart` возвращает `200 OK` даже для пустой корзины (`items: []`)
+- [x] `POST /cart/items` возвращает `200 OK` без тела; `POST /order/checkout` —
+      `201 Created` при новом заказе и `200 OK` при повторе с тем же ключом
 - [x] `401` при неверных учётных данных и при logout без токена
 
 ## Аутентификация
@@ -69,6 +86,8 @@
 - [x] `errs.ErrUnauthorized` для невалидной сессии
 - [x] `GET /user/me`, `Auth.Require`, `Auth.RequireRole("admin")` —
       защищённые роуты, в контексте `Identity{ID, Role}`
+- [x] `POST /cart/items` и `POST /order/checkout` тоже защищены `Auth.Require`;
+      `user_id` берётся из контекста, а не из тела запроса
 - [x] `GET /users` — только `admin`; `GET /user?id=` — авторизованным, не-админ
       видит только свою карточку (чужая отдаётся как `404`)
 - [x] Кука `session`: `HttpOnly`, `SameSite=Lax`, `Secure` при `COOKIE_SECURE=true`
@@ -81,6 +100,9 @@
 - [x] HTTP/JSON-хелперы `internal/httpx`: `ParseID`, `WriteJSON`, `WriteError`
 - [x] Формат ошибки `{"error": "..."}` (кроме текстовых `/health` и списков
       при ошибке БД)
+- [x] Checkout использует транзакцию, `SELECT ... FOR UPDATE` для строк корзины,
+      списание остатка с условием `stock >= quantity`, снимок цены и идемпотентность
+      по `(user_id, idempotency_key)`; `400` — пустая корзина, `409` — нет остатка
 - [x] Handler-структура с `*sql.DB` и конструктором `NewHandler`
 - [x] Общий `scanner`-интерфейс для `*sql.Row` и `*sql.Rows`
 - [x] JOIN статусов/ролей в выборках (развёрнутые объекты вместо `*_id`)
@@ -97,8 +119,11 @@
 
 ## Веб-страницы
 
-- [x] `web/index.html`: витрина товаров из `/products`, ссылка на админ-панель
-      для роли `admin`, индикатор сессии
+- [x] `web/index.html`: витрина товаров из `/products`, кнопка «В корзину»,
+      ссылка на `cart.html` со счётчиком товаров, ссылка на админ-панель для
+      роли `admin`, индикатор сессии
+- [x] `web/cart.html`: просмотр корзины из `GET /cart` — товары, цена, количество,
+      сумма по позиции и итог; пустая корзина и `401` → `auth.html`
 - [x] `web/auth.html`: вход и регистрация; серверная сессия живёт в
       `HttpOnly`-куке `session`, в `localStorage` (`hello-go-backend.auth`)
       сохраняется только профиль для UI, админ перенаправляется в
@@ -123,7 +148,28 @@
       `auth.html`; при `403` показывает ошибку прав без выхода; logout также
       идёт через этот обработчик
 - [x] Заголовок панели показывает фактическую роль из сессии, а не всегда `admin`;
-      атрибут `hidden` гарантированно скрывает элементы
+       атрибут `hidden` гарантированно скрывает элементы
+
+### Готовность фронтенда к корзине и заказам
+
+- [x] Все страницы продолжают работать с текущими публичными ручками и
+      `/user/me`: новые бэкенд-роуты не сломали существующий UI
+- [x] `web/index.html`: кнопка «В корзину» вызывает `POST /cart/items`,
+      счётчик в шапке обновляется из `GET /cart`, есть переход на `cart.html`
+- [x] `web/cart.html`: базовый просмотр корзины — состав, цена, количество,
+      сумма по позиции и итог; пустая корзина показывает отдельное сообщение
+- [ ] Цена и остаток не отображаются в карточках товара:
+      `internal/product/models.go` не отдаёт `price` / `stock` в `GET /products`
+      и `GET /product?id=`; в корзине цена берётся из `GET /cart`
+- [ ] В форме товаров админ-панели нет полей `price` / `stock`; через API их
+      тоже нельзя изменить, поэтому в БД остаётся значение по умолчанию (`0`)
+- [ ] Нельзя изменить состав корзины: бэкенд пока не даёт `PUT /cart/items`,
+      `DELETE /cart/items` и `DELETE /cart`
+- [ ] Нет кнопки оформления: `POST /order/checkout` с `Idempotency-Key`
+      не вызывается, а `api()` в админ-панели не принимает свои заголовки
+
+Итог: добавление и просмотр корзины готовы; изменение корзины и checkout
+в UI ещё не реализованы. Оставшиеся пункты — в `tasks.md` (E2/E3/E6).
 
 ## Документация
 
@@ -138,7 +184,11 @@
 - [ ] Перевода всех пользователей с открытых паролей на bcrypt (fallback в
       `login.go` ещё есть)
 - [ ] JWT и refresh-токенов
-- [ ] Корзины и Redis
+- [ ] Redis, анонимной корзины и merge при входе
+- [ ] Изменения/удаления позиций и очистки корзины (`PUT`/`DELETE /cart*`)
+- [ ] Кнопки оформления заказа в UI, а также `price` / `stock` в карточках
+      товаров и в админ-панели
+- [ ] Чтения оформленного заказа по id/списком
 - [ ] Тестов (unit/integration)
 - [ ] Пагинации, фильтрации, сортировки
 - [ ] OpenAPI/Swagger
@@ -153,3 +203,10 @@
       в `/user/register`
 - [ ] Списки при ошибке БД отдают текст `Error: ...`, а не `{"error": "..."}`
 - [ ] `Secure` куки зависит от `COOKIE_SECURE` (по умолчанию `false`)
+- [ ] Корзина и checkout доступны только авторизованным; анонимная корзина
+      не реализована
+- [ ] `GET /cart` показывает состав, но не даёт изменить количество или удалить
+      позицию — для этого нет `PUT` / `DELETE`
+- [ ] `POST /order/checkout` требует `Idempotency-Key`; без него — `400`
+- [ ] При нехватке остатка checkout отдаёт `409` с текстом
+      `product N: out of stock`, остальные ошибки БД — `500`

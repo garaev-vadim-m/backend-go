@@ -5,11 +5,14 @@
 REST API на Go с PostgreSQL и тремя статическими страницами без сборки:
 витрина товаров (`index.html`), вход/регистрация (`auth.html`) и админ-панель
 (`admin_panel.html`). Страницы встроены в бинарник через `go:embed web` и
-раздаются тем же сервером, что и API. API реализует CRUD для пяти сущностей
-и аутентификацию на серверных сессиях.
+раздаются тем же сервером, что и API. API реализует CRUD для пяти сущностей,
+аутентификацию на серверных сессиях и базовые ручки корзины/заказов
+(`GET /cart`, `POST /cart/items`, `POST /order/checkout`). Витрина позволяет
+добавить товар в корзину и посмотреть её на отдельной странице; изменение
+состава и оформление заказа через UI пока не реализованы.
 
 - API и страницы: `http://localhost:8080`
-- Статика: `web/index.html`, `web/auth.html`, `web/admin_panel.html`
+- Статика: `web/index.html`, `web/auth.html`, `web/cart.html`, `web/admin_panel.html`
 - Документация: `docs/`
 
 > Публичны витрина и справочники (`/products`, `/statuses`, `/rules`,
@@ -45,12 +48,14 @@ internal/
    ├─ errs/                 ErrNotFound, ErrUnauthorized
    ├─ auth/                 HashPassword, CheckPassword, HashOptional, ValidatePassword
    ├─ middleware/           Auth.Require, Auth.RequireRole, IdentityFromContext
-   ├─ session/              Create, Validate, Renew, Revoke (SHA-256 токенов в БД)
-   ├─ database/
-   │    ├─ database.go      подключение с retry
-   │    ├─ migrations.go    golang-migrate + migrations/*.sql
-   │    └─ seed.go          роли admin/user и технический пользователь
-   └─ <entity>/
+    ├─ session/              Create, Validate, Renew, Revoke (SHA-256 токенов в БД)
+    ├─ database/
+    │    ├─ database.go      подключение с retry
+    │    ├─ migrations.go    golang-migrate + migrations/*.sql (15 версий)
+    │    └─ seed.go          роли admin/user и технический пользователь
+    ├─ cart/                добавление товара в корзину
+    ├─ order/               checkout: транзакция, остатки, идемпотентность
+    └─ <entity>/
         ├─ models.go        структуры запроса/ответа
         ├─ repository.go    SQL (Query/QueryRow/Exec)
         └─ controller/      HTTP-обработчики + Handler
@@ -72,12 +77,15 @@ internal/
 backend-go/
 ├─ main.go                 точка входа, маршруты, CORS, раздача статики
 ├─ web/                    статические страницы (go:embed)
-│  ├─ index.html           витрина товаров
+│  ├─ index.html           витрина товаров, кнопка «В корзину»
 │  ├─ auth.html            вход и регистрация
+│  ├─ cart.html            просмотр корзины
 │  └─ admin_panel.html     CRUD-панель (+ /health)
 ├─ internal/
 │  ├─ auth/                bcrypt и валидация пароля
+│  ├─ cart/                корзина: AddItem
 │  ├─ database/            InitDB, CloseDB, RunMigrations, SeedAdmin, migrations/
+│  ├─ order/               оформление заказа: Checkout
 │  ├─ errs/                общие ошибки
 │  ├─ httpx/               HTTP/JSON-хелперы
 │  ├─ middleware/          проверка сессии и роли
@@ -104,8 +112,12 @@ backend-go/
 | Статус пользователя | `user_status` | справочник                                    |
 | Роль                | `rules`       | справочник (`admin`, `user`)                  |
 | Статус товара       | `status`      | справочник                                    |
-| Товар               | `products`    | `status_id → status`                          |
+| Товар               | `products`    | `status_id → status`; есть `price`, `stock`   |
 | Сессия              | `sessions`    | `user_id → users` (не CRUD-сущность)          |
+| Корзина             | `carts`       | `user_id → users` (одна на пользователя)      |
+| Позиция корзины     | `cart_items`  | `cart_id → carts`, `product_id → products`    |
+| Заказ               | `orders`      | `user_id → users`, `idempotency_key`          |
+| Позиция заказа      | `order_items` | `order_id → orders`, `product_id → products`  |
 
 Подробная схема — `docs/database/schema.md`, картинка — `docs/ERD.png`.
 Актуальный перечень колонок и типов — в SQL-миграциях
@@ -120,6 +132,7 @@ backend-go/
 | GET    | `/`                       | витрина (`web/index.html`)                  |
 | GET    | `/auth.html`              | вход/регистрация                            |
 | GET    | `/admin_panel.html`       | админ-панель                                |
+| GET    | `/cart.html`              | просмотр корзины                            |
 | GET    | `/hello`                  | приветствие (старый `/`)                    |
 | GET    | `/health`                 | ping БД                                     |
 | POST   | `/user/register`          | регистрация, роль `user`                    |
@@ -151,27 +164,48 @@ backend-go/
 | POST   | `/product/create`         | создать товар                               |
 | PUT    | `/product/update?id=`     | обновить товар                              |
 | DELETE | `/product/delete?id=`     | удалить товар                               |
+| GET    | `/cart`                   | текущая корзина (авторизованным)             |
+| POST   | `/cart/items`             | добавить товар в корзину (авторизованным)    |
+| POST   | `/order/checkout`         | оформить заказ, нужен `Idempotency-Key`      |
 
 Публичны `/products`, `/product?id=`, `/statuses`, `/status?id=`, `/rules`,
 `/rule?id=`, `/user-statuses`, `/user-status?id=`. `GET /users` требует роли
 `admin`; `GET /user?id=` и `GET /user/me` требуют авторизацию, при этом
 не-админ видит только себя. Создание/обновление/удаление любой сущности — только
-`admin`. Токен берётся из куки `session` или заголовка
+`admin`. `GET /cart`, `POST /cart/items` и `POST /order/checkout` требуют
+авторизацию.
+Токен берётся из куки `session` или заголовка
 `Authorization: Bearer <токен>`; `/user/logout` читает только куку.
 
 Коды ответов: `200` — `GET`/`PUT` и login, `201` — create и register, `204` —
 delete и logout, `400` — неверный JSON/`id`/обязательные поля/слабый пароль,
 `401` — неверные учётные данные, отсутствующая/истёкшая сессия, `403` — у
 пользователя нет роли `admin`, `404` — сущность не найдена, `409` — email уже
-зарегистрирован при register, `500` — внутренняя ошибка. Ошибки отдаются в
-формате `{"error": "..."}` (кроме текстовых ответов `/health` и списков при
-ошибке БД).
+зарегистрирован при register, `500` — внутренняя ошибка. `POST /order/checkout` отдаёт `201` при создании
+заказа и `200` при повторе с тем же `Idempotency-Key`; `400` — пустая корзина,
+`409` — товар закончился. `GET /cart` отдаёт `200` с полями `items` (пустой
+массив для пустой корзины) и `total`; `POST /cart/items` отвечает `200` без тела. Ошибки
+отдаются в формате `{"error": "..."}` (кроме текстовых ответов `/health` и
+списков при ошибке БД).
 
 Админ-панель проверяет длину пароля (8–72 байта, как и бэкенд), обязательность
 `name`/`code` у справочников и лимиты строковых полей из схемы БД до отправки
 запроса. Для не-админа она не загружает список пользователей и блокирует
 карточки. При `401` очищает локальную сессию и возвращает пользователя на
 `auth.html`; при `403` показывает ошибку недостатка прав, оставаясь в сессии.
+
+### Готовность витрины к корзине и заказам
+
+В `web/index.html` у каждой карточки есть кнопка «В корзину» (`POST /cart/items`),
+а в шапке — переход на `web/cart.html`. Страница корзины получает `GET /cart`
+и показывает товары, цену, количество, сумму по позиции и итог;
+неавторизованный пользователь направляется на `auth.html`. Изменить количество или удалить товар
+пока нельзя: бэкенд не реализовал `PUT` / `DELETE` для корзины. Ответы
+`/products` и `/product?id=` по-прежнему не содержат `price` / `stock`, поэтому
+в карточках витрины нет цены и остатка; цена в корзине приходит из `GET /cart`.
+Оформление заказа в UI не подключено: для `POST /order/checkout` нужен заголовок
+`Idempotency-Key`. Оставшиеся пункты — в `docs/project/tasks.md` (E2, E3, E6) и
+`docs/project/implemented.md`.
 
 Формат ответа пользователя (статус и роль развёрнуты, `null` если не назначены;
 `created_at` / `updated_at` в RFC3339 и видны в таблице панели; `password` в
