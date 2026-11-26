@@ -7,7 +7,7 @@
 <style>
   :root{
     --bg:#0f1216; --panel:#161a20; --panel2:#1d222a; --border:#2b313b;
-    --text:#e7eaee; --muted:#98a2b3; --accent:#4c8bf5; --ok:#3fb950;
+    --text:#e7eaee; --muted:#98a2b3; --accent:#4c8bf5; --ok:#3fb950; --danger:#e5534b;
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
@@ -17,6 +17,8 @@
   .grow{flex:1}
   a,button{font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;text-decoration:none;cursor:pointer}
   a:hover,button:hover{border-color:var(--accent);color:#fff}
+  button.danger{color:var(--danger)}
+  button:disabled{cursor:not-allowed;opacity:.5}
   .muted{color:var(--muted)}
   main{padding:18px;max-width:900px;margin:0 auto}
   .toolbar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
@@ -77,9 +79,10 @@
     if (role === "admin") adminLink.hidden = false;
   }
 
-  async function api(path) {
+  async function api(path, options = {}) {
     const res = await fetch(`${API_BASE}${path}`, {
-      headers: { Accept: "application/json" },
+      ...options,
+      headers: { Accept: "application/json", ...(options.headers || {}) },
       credentials: "include",
     });
     if (res.status === 401) {
@@ -118,7 +121,7 @@
     const table = document.createElement("table");
     const head = document.createElement("thead");
     const headRow = document.createElement("tr");
-    for (const title of ["Товар", "Цена", "Кол-во", "Сумма"]) {
+    for (const title of ["Товар", "Цена", "Кол-во", "Сумма", ""]) {
       const th = document.createElement("th");
       th.textContent = title;
       headRow.appendChild(th);
@@ -134,18 +137,44 @@
       row.appendChild(cell(item.price, "num"));
       row.appendChild(cell(item.quantity, "num"));
       row.appendChild(cell(item.total, "num"));
+
+      const action = document.createElement("td");
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "danger";
+      remove.textContent = "Удалить";
+      remove.dataset.removeProduct = cell(item.product_id);
+      remove.addEventListener("click", () => removeItem(remove));
+      action.appendChild(remove);
+      row.appendChild(action);
+
       body.appendChild(row);
     }
 
     const totalRow = document.createElement("tr");
     const label = cell("Итого");
-    label.colSpan = 3;
+    label.colSpan = 4;
     totalRow.appendChild(label);
     totalRow.appendChild(cell(data.total, "num total"));
+    totalRow.appendChild(document.createElement("td"));
     body.appendChild(totalRow);
 
     table.appendChild(body);
     cartEl.appendChild(table);
+  }
+
+  async function removeItem(button) {
+    errorEl.textContent = "";
+    button.disabled = true;
+    try {
+      await api(`/cart/items?product_id=${encodeURIComponent(button.dataset.removeProduct)}`, {
+        method: "DELETE",
+      });
+      await loadCart();
+    } catch (e) {
+      if (e.message !== "Требуется вход") errorEl.textContent = `Не удалось удалить товар: ${e.message}`;
+      button.disabled = false;
+    }
   }
 
   async function loadCart() {

@@ -2,7 +2,6 @@ package httpx
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -10,15 +9,19 @@ import (
 
 // ParseID достает id из query-параметра ?id=
 func ParseID(r *http.Request) (int, error) {
-	s := r.URL.Query().Get("id")
+	return ParseInt(r, "id")
+}
+
+func ParseInt(r *http.Request, key string) (int, error) {
+	s := r.URL.Query().Get(key)
 	if s == "" {
-		return 0, errors.New("id parameter is required")
+		return 0, fmt.Errorf("%s parameter is required", key)
 	}
-	id, err := strconv.Atoi(s)
+	value, err := strconv.Atoi(s)
 	if err != nil {
-		return 0, fmt.Errorf("invalid id: %w", err)
+		return 0, fmt.Errorf("invalid %s: %w", key, err)
 	}
-	return id, nil
+	return value, nil
 }
 
 // WriteJSON пишет статус, заголовок и JSON-тело
