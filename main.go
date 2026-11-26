@@ -180,6 +180,7 @@ func main() {
 	//END PRODUCT
 	//CART
 	cartHandler := controllerCart.NewHandler(database.DB)
+	mux.Handle("GET /cart", auth.Require(http.HandlerFunc(cartHandler.Get)))
 	mux.Handle("POST /cart/items", auth.Require(http.HandlerFunc(cartHandler.AddItem)))
 	//END CART
 	//ORDER
