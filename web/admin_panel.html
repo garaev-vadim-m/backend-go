@@ -65,7 +65,7 @@
 </head>
 <body>
 <header>
-  <h1>hello-go-backend <small>· панель</small> <span id="roleLabel" class="admin-label" title="Роль из /user/me; изменение данных требует роли admin">admin</span></h1>
+  <h1>hello-go-backend <small>· панель</small> <span id="roleLabel" class="admin-label" hidden title="Роль из /user/me; изменение данных требует роли admin">роль</span></h1>
   <div class="field field-inline">
     <label for="base" title="Пусто = текущий origin">API base URL</label>
     <input id="base" placeholder="текущий origin" />
@@ -93,6 +93,7 @@
   const ENTITIES = {
     users: {
       label: "Users",
+      adminOnly: true,
       list: "/users",
       get: (id) => `/user?id=${encodeURIComponent(id)}`,
       create: "/user/create",
@@ -142,7 +143,7 @@
       remove: (id) => `/status/delete?id=${encodeURIComponent(id)}`,
       fields: [
         { name: "name", label: "name", type: "text", required: true, maxLength: 255 },
-        { name: "code", label: "code", type: "text", maxLength: 255 },
+        { name: "code", label: "code", type: "text", required: true, maxLength: 255 },
       ],
     },
     rules: {
@@ -154,7 +155,7 @@
       remove: (id) => `/rule/delete?id=${encodeURIComponent(id)}`,
       fields: [
         { name: "name", label: "name", type: "text", required: true, maxLength: 255 },
-        { name: "code", label: "code", type: "text", maxLength: 255 },
+        { name: "code", label: "code", type: "text", required: true, maxLength: 255 },
       ],
     },
     userStatuses: {
@@ -166,7 +167,7 @@
       remove: (id) => `/user-status/delete?id=${encodeURIComponent(id)}`,
       fields: [
         { name: "name", label: "name", type: "text", required: true, maxLength: 255 },
-        { name: "code", label: "code", type: "text", maxLength: 255 },
+        { name: "code", label: "code", type: "text", required: true, maxLength: 255 },
       ],
     },
     products: {
@@ -209,6 +210,7 @@
   let currentUser = null;
   let canManageEntities = false;
   const submitButtons = [];
+  const adminOnlyDetails = [];
   const logoutBtn = document.getElementById("logout");
 
   function applySession(user) {
@@ -241,6 +243,12 @@
     submitButtons.forEach((btn) => {
       btn.disabled = !canManageEntities;
       btn.title = canManageEntities ? "" : "Только пользователь с ролью admin может изменять данные";
+    });
+
+    adminOnlyDetails.forEach(({ button, input }) => {
+      button.disabled = !canManageEntities;
+      input.disabled = !canManageEntities;
+      button.title = canManageEntities ? "" : "Только пользователь с ролью admin может просматривать карточки пользователей";
     });
   }
 
@@ -377,9 +385,13 @@
     const idInput = form.elements.__id;
     const tableBox = section.querySelector("[data-table]");
     const detailIdInput = section.querySelector("[data-detail-id]");
+    const detailLoadBtn = section.querySelector("[data-detail-load]");
     const detailResult = section.querySelector("[data-detail-result]");
 
     submitButtons.push(submitBtn);
+    if (entity.adminOnly && detailLoadBtn) {
+      adminOnlyDetails.push({ button: detailLoadBtn, input: detailIdInput });
+    }
 
     if (detailIdInput) {
       const loadDetail = async () => {
@@ -410,7 +422,7 @@
           log(`${entity.label}: ${e.message}`, "err");
         }
       };
-      section.querySelector("[data-detail-load]").addEventListener("click", loadDetail);
+      detailLoadBtn.addEventListener("click", loadDetail);
       detailIdInput.addEventListener("keydown", (ev) => {
         if (ev.key === "Enter") loadDetail();
       });
@@ -507,6 +519,10 @@
     }
 
     async function load() {
+      if (entity.adminOnly && !canManageEntities) {
+        tableBox.innerHTML = `<span class="muted">Недостаточно прав для просмотра пользователей</span>`;
+        return;
+      }
       // Варианты select'ов подтягиваем вместе со списком, чтобы новые
       // статусы/роли сразу были видны в выпадающих списках.
       await fillSelects();
