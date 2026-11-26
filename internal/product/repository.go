@@ -12,7 +12,8 @@ import (
 // Алиасы везде одинаковые: p (products) и st (status).
 const productColumns = `
 	p.id, p.name, p.description,
-	st.id, st.name, st.code`
+	st.id, st.name, st.code,
+	p.price::text, p.stock`
 
 const productJoins = `
 	LEFT JOIN status st ON st.id = p.status_id`
@@ -36,6 +37,8 @@ func scanProduct(s scanner) (*Product, error) {
 		&statusID,
 		&statusName,
 		&statusCode,
+		&p.Price,
+		&p.Stock,
 	)
 	if err != nil {
 		return nil, err
@@ -93,17 +96,17 @@ func GetProduct(db *sql.DB, id int) (*Product, error) {
 	return p, nil
 }
 
-func CreateProduct(db *sql.DB, name string, description *string, statusId *int) (*Product, error) {
+func CreateProduct(db *sql.DB, name string, description *string, statusId *int, price string, stock int) (*Product, error) {
 	// RETURNING не умеет JOIN, поэтому вставляем в CTE и джойним его.
 	query := `
 	WITH ins AS (
-		INSERT INTO products (name, description, status_id)
-		VALUES ($1, $2, $3)
-		RETURNING id, name, description, status_id
+		INSERT INTO products (name, description, status_id, price, stock)
+		VALUES ($1, $2, $3, $4::numeric, $5::int)
+		RETURNING id, name, description, status_id, price, stock
 	)
 	SELECT` + productColumns + ` FROM ins p` + productJoins
 
-	p, err := scanProduct(db.QueryRow(query, name, description, statusId))
+	p, err := scanProduct(db.QueryRow(query, name, description, statusId, price, stock))
 	if err != nil {
 		return nil, err
 	}
@@ -111,17 +114,17 @@ func CreateProduct(db *sql.DB, name string, description *string, statusId *int) 
 	return p, nil
 }
 
-func UpdateProduct(db *sql.DB, id int, name string, description *string, statusId *int) (*Product, error) {
+func UpdateProduct(db *sql.DB, id int, name string, description *string, statusId *int, price string, stock int) (*Product, error) {
 	query := `
 	WITH upd AS (
 		UPDATE products
-		SET name = $1, description = $2, status_id = $3
-		WHERE id = $4
-		RETURNING id, name, description, status_id
+		SET name = $1, description = $2, status_id = $3, price = $4::numeric, stock = $5::int
+		WHERE id = $6
+		RETURNING id, name, description, status_id, price, stock
 	)
 	SELECT` + productColumns + ` FROM upd p` + productJoins
 
-	p, err := scanProduct(db.QueryRow(query, name, description, statusId, id))
+	p, err := scanProduct(db.QueryRow(query, name, description, statusId, price, stock, id))
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("product with id %d not found", id)

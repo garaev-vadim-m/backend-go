@@ -30,7 +30,13 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p, err := product.UpdateProduct(h.db, id, req.Name, req.Description, req.StatusId)
+	price, err := validateProduct(req.Price, req.Stock)
+	if err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	p, err := product.UpdateProduct(h.db, id, req.Name, req.Description, req.StatusId, price, req.Stock)
 	if err != nil {
 		if errors.Is(err, errs.ErrNotFound) {
 			httpx.WriteError(w, http.StatusNotFound, err)

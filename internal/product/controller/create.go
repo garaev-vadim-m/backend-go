@@ -22,7 +22,14 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, http.StatusBadRequest, errors.New("name is required"))
 		return
 	}
-	p, err := product.CreateProduct(h.db, req.Name, req.Description, req.StatusId)
+
+	price, err := validateProduct(req.Price, req.Stock)
+	if err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	p, err := product.CreateProduct(h.db, req.Name, req.Description, req.StatusId, price, req.Stock)
 
 	if err != nil {
 		log.Printf("product create: %v", err)
