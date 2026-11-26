@@ -12,10 +12,12 @@ REST API на Go с PostgreSQL и тремя статическими стран
 - Статика: `web/index.html`, `web/auth.html`, `web/admin_panel.html`
 - Документация: `docs/`
 
-> GET-роуты публичны; все `POST`/`PUT`/`DELETE` для сущностей требуют роли
-> `admin` и проходят через `middleware.Auth.RequireRole`. `/user/me` и
-> `/user/logout` читают только куку `session`. Оставшиеся долги — в
-> `docs/project/tasks.md`.
+> Публичны витрина и справочники (`/products`, `/statuses`, `/rules`,
+> `/user-statuses`) и карточки товаров/справочников. `GET /users` — только для
+> `admin`; `GET /user?id=` и `GET /user/me` требуют авторизацию (обычный
+> пользователь видит только себя). Все `POST`/`PUT`/`DELETE` сущностей — только
+> `admin`. `/user/logout` читает только куку `session`; остальные защищённые
+> роуты принимают куку или `Authorization: Bearer`. Долги — в `tasks.md`.
 
 ## Стек
 
@@ -42,7 +44,7 @@ internal/
    ├─ httpx/                ParseID, WriteJSON, WriteError
    ├─ errs/                 ErrNotFound, ErrUnauthorized
    ├─ auth/                 HashPassword, CheckPassword, HashOptional, ValidatePassword
-   ├─ middleware/           Auth.Require, Auth.RequireRole, UserIDFromContext
+   ├─ middleware/           Auth.Require, Auth.RequireRole, IdentityFromContext
    ├─ session/              Create, Validate, Renew, Revoke (SHA-256 токенов в БД)
    ├─ database/
    │    ├─ database.go      подключение с retry
@@ -57,10 +59,12 @@ internal/
 Слои: `controller` → `repository` → PostgreSQL. Контроллер отвечает за HTTP и
 коды ответов, репозиторий — за SQL и маппинг строк в модели. Аутентификация
 живёт в `user/controller` и использует пакеты `auth` и `session`.
-`session.Validate` вызывается в `GET /user/me` и в `middleware.Auth.Require`;
-последний кладёт id пользователя в `context.Context`, обновляет сессию и
-перевыпускает куку. `Auth.RequireRole("admin")` дополнительно проверяет роль
-через JOIN `users`/`rules` и возвращает `403` без вызова обработчика.
+`session.Validate` вызывается в `middleware.Auth.Require`: он возвращает id и
+код роли, кладёт `Identity{ID, Role}` в `context.Context`, обновляет сессию и
+перевыпускает куку. `GET /user/me` берёт id из этого контекста.
+`Auth.RequireRole("admin")` сравнивает `Identity.Role` и возвращает `403` без
+вызова обработчика; `GET /user?id=` дополнительно разрешает обычному
+пользователю только свою карточку (чужие — `404`).
 
 ## Структура проекта
 
@@ -148,11 +152,12 @@ backend-go/
 | PUT    | `/product/update?id=`     | обновить товар                              |
 | DELETE | `/product/delete?id=`     | удалить товар                               |
 
-`GET`-роуты (`/users`, `/user?id=`, `/statuses`, `/rules`, `/user-statuses`,
-`/products` и карточки по id) публичны. Создание/обновление/удаление любой
-сущности требуют роли `admin`; токен берётся из куки `session` или заголовка
-`Authorization: Bearer <токен>`. `/user/me` и `/user/logout` работают только с
-кукой.
+Публичны `/products`, `/product?id=`, `/statuses`, `/status?id=`, `/rules`,
+`/rule?id=`, `/user-statuses`, `/user-status?id=`. `GET /users` требует роли
+`admin`; `GET /user?id=` и `GET /user/me` требуют авторизацию, при этом
+не-админ видит только себя. Создание/обновление/удаление любой сущности — только
+`admin`. Токен берётся из куки `session` или заголовка
+`Authorization: Bearer <токен>`; `/user/logout` читает только куку.
 
 Коды ответов: `200` — `GET`/`PUT` и login, `201` — create и register, `204` —
 delete и logout, `400` — неверный JSON/`id`/обязательные поля/слабый пароль,
@@ -162,10 +167,11 @@ delete и logout, `400` — неверный JSON/`id`/обязательные 
 формате `{"error": "..."}` (кроме текстовых ответов `/health` и списков при
 ошибке БД).
 
-Админ-панель проверяет длину пароля (8–72 байта, как и бэкенд) и лимиты
-строковых полей из схемы БД до отправки запроса. При `401` она очищает локальную
-сессию и возвращает пользователя на `auth.html`; при `403` показывает ошибку
-недостатка прав, оставаясь в сессии.
+Админ-панель проверяет длину пароля (8–72 байта, как и бэкенд), обязательность
+`name`/`code` у справочников и лимиты строковых полей из схемы БД до отправки
+запроса. Для не-админа она не загружает список пользователей и блокирует
+карточки. При `401` очищает локальную сессию и возвращает пользователя на
+`auth.html`; при `403` показывает ошибку недостатка прав, оставаясь в сессии.
 
 Формат ответа пользователя (статус и роль развёрнуты, `null` если не назначены;
 `created_at` / `updated_at` в RFC3339 и видны в таблице панели; `password` в
